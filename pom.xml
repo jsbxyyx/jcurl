@@ -7,8 +7,7 @@
     <version>${revision}</version>
     <name>jcurl</name>
     <description>jcurl</description>
-
-    <url>https://github.com/jsbxyyx/xid</url>
+    <url>https://github.com/jsbxyyx/jcurl</url>
 
     <licenses>
         <license>
