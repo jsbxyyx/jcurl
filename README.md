@@ -221,10 +221,10 @@ String ct2 = response.getHeader("content-type");
 String ct3 = response.getHeader("CONTENT-TYPE");
 
 // 检查是否存在某个 Header
-boolean hasContentType = response. hasHeader("content-type");
+boolean hasContentType = response.hasHeader("content-type");
 
 // 获取所有 Set-Cookie
-List<String> cookies = response. getCookies();
+List<String> cookies = response.getCookies();
 ```
 
 ## 📤 文件上传
@@ -235,7 +235,7 @@ List<String> cookies = response. getCookies();
 JCurl.HttpResponseModel response = JCurl.create()
     .url("https://httpbin.org/post")
     .post()
-    .formFile("file", "/path/to/file. txt")
+    .formFile("file", "/path/to/file.txt")
     .exec();
 ```
 
@@ -300,7 +300,7 @@ JCurl.HttpResponseModel response = JCurl.create()
 ### Bearer Token
 
 ```java
-JCurl.HttpResponseModel response = JCurl. create()
+JCurl.HttpResponseModel response = JCurl.create()
     .url("https://api.example.com/data")
     .bearerToken("your-jwt-token-here")
     .get()
@@ -480,7 +480,7 @@ implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 然后使用 OkHttp 执行器：
 
 ```java
-import io.github.jsbxyyx. jcurl.OkHttpExecutor;
+import io.github.jsbxyyx.jcurl.OkHttpExecutor;
 
 // 使用 OkHttp（支持 HTTP/2）
 JCurl.HttpResponseModel response = JCurl.create()
@@ -588,7 +588,7 @@ try {
         System.out.println(response.getBody());
     } else {
         // 处理错误响应
-        System. err.println("Error: " + response.getStatusCode());
+        System.err.println("Error: " + response.getStatusCode());
         System.err.println(response.getBody());
     }
 } catch (IOException e) {
@@ -602,7 +602,7 @@ try {
 ```java
 // 发送 JSON
 String requestJson = "{\"name\": \"John\", \"age\": 30}";
-JCurl.HttpResponseModel response = JCurl. create()
+JCurl.HttpResponseModel response = JCurl.create()
     .url("https://api.example.com/users")
     .post()
     .jsonBody(requestJson)
@@ -667,7 +667,7 @@ JCurl.HttpResponseModel response2 = JCurl.fromModel(baseModel)
 ```java
 CompletableFuture<HttpResponseModel> future = CompletableFuture.supplyAsync(() -> {
     try {
-        return JCurl. create()
+        return JCurl.create()
             .url("https://api.example.com/data")
             .get()
             .exec();
