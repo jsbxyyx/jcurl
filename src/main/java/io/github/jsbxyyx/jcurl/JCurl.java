@@ -19,6 +19,7 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -1622,7 +1623,6 @@ public class JCurl {
         private int statusCode;
         private String statusMessage;
         private Map<String, List<String>> headers = new CaseInsensitiveMap<>();
-        private String body;
         private byte[] bodyBytes;
 
         // Getters and Setters
@@ -1670,11 +1670,14 @@ public class JCurl {
         }
 
         public String getBody() {
-            return body;
+            return getBody(StandardCharsets.UTF_8);
         }
 
-        public void setBody(String body) {
-            this.body = body;
+        public String getBody(Charset charset) {
+            if (bodyBytes == null) {
+                return null;
+            }
+            return new String(bodyBytes, charset);
         }
 
         public byte[] getBodyBytes() {
@@ -1695,12 +1698,13 @@ public class JCurl {
                     + statusCode + ", statusMessage='"
                     + statusMessage + '\'' + ", headers="
                     + headers.size() + ", bodyLength="
-                    + (body != null ? body.length() : 0) + '}';
+                    + (bodyBytes != null ? bodyBytes.length : 0) + '}';
         }
     }
 
     /**
      * 忽略大小写的Map实现
+     *
      * @param <V>
      */
     private static class CaseInsensitiveMap<V> implements Map<String, V> {
@@ -2089,11 +2093,9 @@ public class JCurl {
                     // 读取响应体（考虑最大下载大小限制）
                     byte[] bodyBytes = readInputStream(inputStream, requestModel.getConfig().getMaxDownloadSize());
                     response.setBodyBytes(bodyBytes);
-                    response.setBody(new String(bodyBytes, StandardCharsets.UTF_8));
                 }
             } catch (IOException e) {
                 // 如果读取响应体失败，不抛出异常，只是没有响应体
-                response.setBody("");
                 response.setBodyBytes(new byte[0]);
             } finally {
                 if (inputStream != null) {

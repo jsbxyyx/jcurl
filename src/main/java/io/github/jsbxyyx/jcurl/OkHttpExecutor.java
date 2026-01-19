@@ -258,7 +258,6 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
         // 响应体
         if (response.body() != null) {
             byte[] bodyBytes = response.body().bytes();
-
             // 处理gzip压缩
             String encoding = response.header("Content-Encoding");
             if ("gzip".equalsIgnoreCase(encoding)) {
@@ -266,8 +265,6 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
             } else if ("deflate".equalsIgnoreCase(encoding)) {
                 bodyBytes = decompressDeflate(bodyBytes);
             }
-
-            result.setBody(new String(bodyBytes, java.nio.charset.StandardCharsets.UTF_8));
             result.setBodyBytes(bodyBytes);
         }
 
