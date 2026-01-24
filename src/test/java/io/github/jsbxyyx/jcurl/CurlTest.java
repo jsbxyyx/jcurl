@@ -21,17 +21,50 @@ public class CurlTest {
 
     @Test
     void test2() throws Exception {
-        JCurl.HttpResponseModel responseModel = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
-                        " -H \"Content-Type: application/json\" " +
-                        " -d '{\"name\": \"test\"}'")
-                .exec(OkHttpExecutor.create());
-        System.out.println("contains application/json : " + responseModel.getBody().contains("application/json"));
-
-        JCurl.HttpResponseModel responseModel2 = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
-                        " -H \"Content-Type: text/plain\" " +
-                        " -d '{\"name\": \"test\"}'")
-                .exec(OkHttpExecutor.create());
-        System.out.println("contains text/plain : " + responseModel2.getBody().contains("text/plain"));
+        {
+            JCurl.HttpResponseModel responseModel = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
+                            " -H \"Content-Type: application/json\" " +
+                            " -d '{\"name\": \"test\"}'")
+                    .exec(OkHttpExecutor.create());
+            System.out.println("contains Content-Type: application/json : " + responseModel.getBody().contains("application/json"));
+        }
+        {
+            JCurl.HttpResponseModel responseModel = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
+                            " -H \"Content-Type: text/plain\" " +
+                            " -d '{\"name\": \"test\"}'")
+                    .exec(OkHttpExecutor.create());
+            System.out.println("contains Content-Type: text/plain : " + responseModel.getBody().contains("text/plain"));
+        }
+        {
+            JCurl.HttpResponseModel responseModel = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
+                            " -H \"Content-Type: text/plain\" " +
+                            " -d '{\"name\": \"test\"}'")
+                    .exec();
+            System.out.println("contains Content-Type: text/plain : " + responseModel.getBody().contains("text/plain"));
+        }
+        {
+            JCurl.HttpResponseModel responseModel = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
+                            " -H \"Content-Type: application/json\" " +
+                            " -d '{\"name\": \"test\"}'")
+                    .exec();
+            System.out.println("contains Content-Type: application/json : " + responseModel.getBody().contains("application/json"));
+        }
+        {
+            JCurl.HttpResponseModel responseModel = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
+                            " -H \"Content-Type: application/json\" " +
+                            " -H \"Origin: http://localhost\" " +
+                            " -d '{\"name\": \"test\"}'")
+                    .exec();
+            System.out.println("contains Origin: http://localhost : " + responseModel.getBody().contains("http://localhost"));
+        }
+        {
+            JCurl.HttpResponseModel responseModel = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
+                            " -H \"Content-Type: application/json\" " +
+                            " -H \"Origin: http://localhost\" " +
+                            " -d '{\"name\": \"test\"}'")
+                    .exec(OkHttpExecutor.create());
+            System.out.println("contains Origin: http://localhost : " + responseModel.getBody().contains("http://localhost"));
+        }
     }
 
     @Test
