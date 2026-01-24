@@ -26,6 +26,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.InflaterInputStream;
 
+import static io.github.jsbxyyx.jcurl.JCurl.Constants.APPLICATION_OCTET_STREAM_VALUE;
+import static io.github.jsbxyyx.jcurl.JCurl.Constants.APPLICATION_X_WWW_FORM_URLENCODED_VALUE;
+import static io.github.jsbxyyx.jcurl.JCurl.Constants.AUTHORIZATION;
+import static io.github.jsbxyyx.jcurl.JCurl.Constants.CONTENT_ENCODING;
+import static io.github.jsbxyyx.jcurl.JCurl.Constants.CONTENT_TYPE;
+import static io.github.jsbxyyx.jcurl.JCurl.Constants.COOKIE;
+import static io.github.jsbxyyx.jcurl.JCurl.Constants.DEFLATE_VALUE;
+import static io.github.jsbxyyx.jcurl.JCurl.Constants.GZIP_VALUE;
+import static io.github.jsbxyyx.jcurl.JCurl.Constants.PROXY_AUTHORIZATION;
+
 /**
  * OkHttp实现的HTTP请求执行器
  * 需要依赖: com.squareup.okhttp3:okhttp:4.x
@@ -94,7 +104,7 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
                                     : "");
                     return response.request()
                             .newBuilder()
-                            .header("Proxy-Authorization", credential)
+                            .header(PROXY_AUTHORIZATION, credential)
                             .build();
                 });
             }
@@ -137,7 +147,7 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
                 if (cookieHeader.length() > 0) cookieHeader.append("; ");
                 cookieHeader.append(cookie.getKey()).append("=").append(cookie.getValue());
             }
-            builder.addHeader("Cookie", cookieHeader.toString());
+            builder.addHeader(COOKIE, cookieHeader.toString());
         }
 
         // Basic认证
@@ -145,7 +155,7 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
             String credential = Credentials.basic(
                     requestModel.getUsername(),
                     requestModel.getPassword() != null ? requestModel.getPassword() : "");
-            builder.addHeader("Authorization", credential);
+            builder.addHeader(AUTHORIZATION, credential);
         }
 
         // 构建请求体
@@ -177,7 +187,7 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
                     File file = new File(field.getFilePath());
                     MediaType mediaType = field.getContentType() != null
                             ? MediaType.parse(field.getContentType())
-                            : MediaType.parse("application/octet-stream");
+                            : MediaType.parse(APPLICATION_OCTET_STREAM_VALUE);
                     multipartBuilder.addFormDataPart(
                             entry.getKey(),
                             field.getFileName(),
@@ -207,12 +217,12 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
 
     private static MediaType getMediaType(Map<String, List<String>> headers) {
         String contentType = null;
-        if (headers.get("Content-Type") == null && !headers.get("Content-Type").isEmpty()) {
-            contentType = headers.get("content-type").get(0);
+        if (headers.get(CONTENT_TYPE) == null && !headers.get(CONTENT_TYPE).isEmpty()) {
+            contentType = headers.get(CONTENT_TYPE).get(0);
         }
         return contentType != null
                 ? MediaType.parse(contentType)
-                : MediaType.parse("application/x-www-form-urlencoded");
+                : MediaType.parse(APPLICATION_X_WWW_FORM_URLENCODED_VALUE);
     }
 
     private static JCurl.HttpResponseModel executeWithRetry(
@@ -259,10 +269,10 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
         if (response.body() != null) {
             byte[] bodyBytes = response.body().bytes();
             // 处理gzip压缩
-            String encoding = response.header("Content-Encoding");
-            if ("gzip".equalsIgnoreCase(encoding)) {
+            String encoding = response.header(CONTENT_ENCODING);
+            if (GZIP_VALUE.equalsIgnoreCase(encoding)) {
                 bodyBytes = decompressGzip(bodyBytes);
-            } else if ("deflate".equalsIgnoreCase(encoding)) {
+            } else if (DEFLATE_VALUE.equalsIgnoreCase(encoding)) {
                 bodyBytes = decompressDeflate(bodyBytes);
             }
             result.setBodyBytes(bodyBytes);

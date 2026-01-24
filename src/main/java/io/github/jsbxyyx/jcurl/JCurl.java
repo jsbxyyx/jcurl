@@ -39,6 +39,32 @@ import java.util.zip.GZIPInputStream;
 
 public class JCurl {
 
+    public static class Constants {
+        public static final String ACCEPT_ENCODING = "Accept-Encoding";
+        public static final String REFERER = "Referer";
+        public static final String USER_AGENT = "User-Agent";
+        public static final String PROXY_AUTHORIZATION = "Proxy-Authorization";
+        public static final String AUTHORIZATION = "Authorization";
+        public static final String COOKIE = "Cookie";
+        public static final String CONTENT_TYPE = "Content-Type";
+        public static final String CONTENT_DISPOSITION = "Content-Disposition";
+        public static final String CONTENT_TRANSFER_ENCODING = "Content-Transfer-Encoding";
+        public static final String CONTENT_ENCODING = "Content-Encoding";
+
+        public static final String APPLICATION_OCTET_STREAM_VALUE = "application/octet-stream";
+        public static final String MULTIPART_FORM_DATA_VALUE = "multipart/form-data";
+        public static final String APPLICATION_X_WWW_FORM_URLENCODED_VALUE = "application/x-www-form-urlencoded";
+        public static final String GZIP_DEFLATE_VALUE = "gzip, deflate";
+        public static final String BINARY_VALUE = "binary";
+        public static final String GZIP_VALUE = "gzip";
+        public static final String DEFLATE_VALUE = "deflate";
+        public static final String FORM_DATA_VALUE = "form-data";
+
+        public static final String BASIC_SPACE = "Basic ";
+        public static final String BEARER_SPACE = "Bearer ";
+        public static final String COLON_SPACE = ": ";
+    }
+
     private final HttpRequestModel request;
 
     private JCurl() {
@@ -288,7 +314,7 @@ public class JCurl {
      * 设置Bearer Token
      */
     public JCurl bearerToken(String token) {
-        request.setHeader("Authorization", "Bearer " + token);
+        request.setHeader(Constants.AUTHORIZATION, Constants.BEARER_SPACE + token);
         return this;
     }
 
@@ -312,7 +338,7 @@ public class JCurl {
      * 设置User-Agent
      */
     public JCurl userAgent(String userAgent) {
-        request.setHeader("User-Agent", userAgent);
+        request.setHeader(Constants.USER_AGENT, userAgent);
         return this;
     }
 
@@ -320,7 +346,7 @@ public class JCurl {
      * 设置Referer
      */
     public JCurl referer(String referer) {
-        request.setHeader("Referer", referer);
+        request.setHeader(Constants.REFERER, referer);
         return this;
     }
 
@@ -329,7 +355,7 @@ public class JCurl {
      */
     public JCurl compressed() {
         request.getConfig().setCompressed(true);
-        request.setHeader("Accept-Encoding", "gzip, deflate");
+        request.setHeader(Constants.ACCEPT_ENCODING, Constants.GZIP_DEFLATE_VALUE);
         return this;
     }
 
@@ -563,10 +589,10 @@ public class JCurl {
                     break;
 
                 default:
-                    throw new IllegalArgumentException("未知选项: " + option);
+                    throw new IllegalArgumentException("unknown: " + option);
             }
         } catch (Exception e) {
-            throw new RuntimeException("解析选项失败:  " + option + " = " + value, e);
+            throw new RuntimeException("parse options failed:  " + option + " = " + value, e);
         }
         return this;
     }
@@ -606,7 +632,7 @@ public class JCurl {
                 break;
 
             default:
-                throw new IllegalArgumentException("未知开关选项: " + option);
+                throw new IllegalArgumentException("unknown option: " + option);
         }
         return this;
     }
@@ -616,7 +642,7 @@ public class JCurl {
     private void parseAndAddHeader(String header) {
         int colonIndex = header.indexOf(':');
         if (colonIndex == -1) {
-            throw new IllegalArgumentException("无效的header格式: " + header);
+            throw new IllegalArgumentException("invalid header format: " + header);
         }
         String key = header.substring(0, colonIndex).trim();
         String value = header.substring(colonIndex + 1).trim();
@@ -626,7 +652,7 @@ public class JCurl {
     private void parseAndAddFormField(String formStr) {
         int eqIndex = formStr.indexOf('=');
         if (eqIndex == -1) {
-            throw new IllegalArgumentException("无效的表单字段格式:  " + formStr);
+            throw new IllegalArgumentException("invalid form field format:  " + formStr);
         }
         String name = formStr.substring(0, eqIndex).trim();
         String value = formStr.substring(eqIndex + 1).trim();
@@ -732,7 +758,7 @@ public class JCurl {
      */
     public HttpRequestModel build() {
         if (request.getUrl() == null || request.getUrl().isEmpty()) {
-            throw new IllegalStateException("URL不能为空");
+            throw new IllegalStateException("URL must be specified");
         }
 
         // 确保URL有协议
@@ -867,7 +893,7 @@ public class JCurl {
 
                     case "--compressed":
                         request.getConfig().setCompressed(true);
-                        request.addHeader("Accept-Encoding", "gzip, deflate");
+                        request.addHeader(Constants.ACCEPT_ENCODING, Constants.GZIP_DEFLATE_VALUE);
                         break;
 
                     case "--connect-timeout":
@@ -922,12 +948,12 @@ public class JCurl {
                         }
                 }
             } catch (Exception e) {
-                throw new IllegalArgumentException("解析参数失败: " + arg, e);
+                throw new IllegalArgumentException("parse option failed: " + arg, e);
             }
         }
 
         if (request.getUrl() == null || request.getUrl().isEmpty()) {
-            throw new IllegalArgumentException("缺少URL");
+            throw new IllegalArgumentException("URL must be specified");
         }
 
         if (!request.getUrl().startsWith("http://") && !request.getUrl().startsWith("https://")) {
@@ -987,7 +1013,7 @@ public class JCurl {
 
     private static String getNextArg(String[] args, int currentIndex) {
         if (currentIndex + 1 >= args.length) {
-            throw new IllegalArgumentException("参数缺失");
+            throw new IllegalArgumentException("argument expected after: " + args[currentIndex]);
         }
         return args[currentIndex + 1];
     }
@@ -995,7 +1021,7 @@ public class JCurl {
     private static void parseHeader(HttpRequestModel request, String header) {
         int colonIndex = header.indexOf(':');
         if (colonIndex == -1) {
-            throw new IllegalArgumentException("无效的请求头格式: " + header);
+            throw new IllegalArgumentException("invalid request header format: " + header);
         }
         String key = header.substring(0, colonIndex).trim();
         String value = header.substring(colonIndex + 1).trim();
@@ -1005,7 +1031,7 @@ public class JCurl {
     private static void parseFormField(HttpRequestModel request, String formStr) {
         int eqIndex = formStr.indexOf('=');
         if (eqIndex == -1) {
-            throw new IllegalArgumentException("无效的表单字段格式: " + formStr);
+            throw new IllegalArgumentException("invalid form field format: " + formStr);
         }
 
         String name = formStr.substring(0, eqIndex).trim();
@@ -1092,7 +1118,7 @@ public class JCurl {
                 return Proxy.Type.SOCKS;
 
             default:
-                System.err.println("警告: 未知代理协议 '" + protocol + "', 使用默认 HTTP");
+                System.err.println("warning: unknown proxy protocol '" + protocol + "', use proxy : HTTP");
                 return Proxy.Type.HTTP;
         }
     }
@@ -1137,7 +1163,7 @@ public class JCurl {
     public static class HttpRequestModel {
         private String url;
         private String method = "GET";
-        private Map<String, List<String>> headers = new LinkedHashMap<>();
+        private Map<String, List<String>> headers = new CaseInsensitiveMap<>();
         private String body;
         private byte[] binaryBody;
         private Map<String, List<FormField>> formFields;
@@ -1930,7 +1956,7 @@ public class JCurl {
                         (config.getProxyPassword() != null ? config.getProxyPassword() : "");
                 String encodedProxyAuth = Base64.getEncoder()
                         .encodeToString(proxyAuth.getBytes(StandardCharsets.UTF_8));
-                connection.setRequestProperty("Proxy-Authorization", "Basic " + encodedProxyAuth);
+                connection.setRequestProperty(Constants.PROXY_AUTHORIZATION, Constants.BASIC_SPACE + encodedProxyAuth);
             }
         }
 
@@ -1948,7 +1974,7 @@ public class JCurl {
                         (requestModel.getPassword() != null ? requestModel.getPassword() : "");
                 String encodedAuth = Base64.getEncoder()
                         .encodeToString(auth.getBytes(StandardCharsets.UTF_8));
-                connection.setRequestProperty("Authorization", "Basic " + encodedAuth);
+                connection.setRequestProperty(Constants.AUTHORIZATION, Constants.BASIC_SPACE + encodedAuth);
             }
 
             // 设置 Cookies
@@ -1960,7 +1986,7 @@ public class JCurl {
                     }
                     cookieHeader.append(cookie.getKey()).append("=").append(cookie.getValue());
                 }
-                connection.setRequestProperty("Cookie", cookieHeader.toString());
+                connection.setRequestProperty(Constants.COOKIE, cookieHeader.toString());
             }
         }
 
@@ -1995,7 +2021,7 @@ public class JCurl {
         private void sendMultipartFormData(HttpURLConnection connection, JCurl.HttpRequestModel requestModel)
                 throws IOException {
             String boundary = BOUNDARY_PREFIX + System.currentTimeMillis();
-            connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+            connection.setRequestProperty(Constants.CONTENT_TYPE, Constants.MULTIPART_FORM_DATA_VALUE + "; boundary=" + boundary);
 
             try (OutputStream os = connection.getOutputStream();
                  PrintWriter writer = new PrintWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8), true)) {
@@ -2019,7 +2045,8 @@ public class JCurl {
 
         private void writeTextPart(PrintWriter writer, String boundary, String fieldName, String value) {
             writer.append("--").append(boundary).append(CRLF);
-            writer.append("Content-Disposition: form-data; name=\"").append(fieldName).append("\"").append(CRLF);
+            writer.append(Constants.CONTENT_DISPOSITION).append(Constants.COLON_SPACE).append(Constants.FORM_DATA_VALUE)
+                    .append("; name=\"").append(fieldName).append("\"").append(CRLF);
             writer.append(CRLF);
             writer.append(value).append(CRLF);
             writer.flush();
@@ -2028,18 +2055,20 @@ public class JCurl {
         private void writeFilePart(PrintWriter writer, OutputStream os, String boundary,
                                    String fieldName, JCurl.HttpRequestModel.FormField field) throws IOException {
             writer.append("--").append(boundary).append(CRLF);
-            writer.append("Content-Disposition: form-data; name=\"").append(fieldName)
-                    .append("\"; filename=\"").append(field.getFileName()).append("\"").append(CRLF);
+            writer.append(Constants.CONTENT_DISPOSITION).append(Constants.COLON_SPACE).append(Constants.FORM_DATA_VALUE)
+                    .append("; name=\"").append(fieldName)
+                    .append("\"; filename=\"").append(field.getFileName()).append("\"")
+                    .append(CRLF);
 
             String contentType = field.getContentType();
             if (contentType == null || contentType.isEmpty()) {
                 contentType = URLConnection.guessContentTypeFromName(field.getFileName());
                 if (contentType == null) {
-                    contentType = "application/octet-stream";
+                    contentType = Constants.APPLICATION_OCTET_STREAM_VALUE;
                 }
             }
-            writer.append("Content-Type: ").append(contentType).append(CRLF);
-            writer.append("Content-Transfer-Encoding: binary").append(CRLF);
+            writer.append(Constants.CONTENT_TYPE).append(Constants.COLON_SPACE).append(contentType).append(CRLF);
+            writer.append(Constants.CONTENT_TRANSFER_ENCODING).append(Constants.COLON_SPACE).append(Constants.BINARY_VALUE).append(CRLF);
             writer.append(CRLF);
             writer.flush();
 
@@ -2087,7 +2116,7 @@ public class JCurl {
                 if (inputStream != null) {
                     // 处理压缩
                     String contentEncoding = connection.getContentEncoding();
-                    if ("gzip".equalsIgnoreCase(contentEncoding)) {
+                    if (Constants.GZIP_VALUE.equalsIgnoreCase(contentEncoding)) {
                         inputStream = new GZIPInputStream(inputStream);
                     }
                     // 读取响应体（考虑最大下载大小限制）
