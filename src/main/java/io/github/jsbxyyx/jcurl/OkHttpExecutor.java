@@ -217,7 +217,7 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
 
     private static MediaType getMediaType(Map<String, List<String>> headers) {
         String contentType = null;
-        if (headers.get(CONTENT_TYPE) == null && !headers.get(CONTENT_TYPE).isEmpty()) {
+        if (headers.get(CONTENT_TYPE) != null && !headers.get(CONTENT_TYPE).isEmpty()) {
             contentType = headers.get(CONTENT_TYPE).get(0);
         }
         return contentType != null

@@ -1201,7 +1201,7 @@ public class JCurl {
         }
 
         public void setHeaders(Map<String, List<String>> headers) {
-            this.headers = headers;
+            this.headers = new CaseInsensitiveMap<>(headers);
         }
 
         /**
