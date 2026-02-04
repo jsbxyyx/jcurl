@@ -28,7 +28,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
 import java.util.AbstractMap;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -36,6 +35,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.InflaterInputStream;
+
+import static io.github.jsbxyyx.jcurl.JCurl.Constants.DEFLATE_VALUE;
+import static io.github.jsbxyyx.jcurl.JCurl.Constants.GZIP_VALUE;
 
 public class JCurl {
 
@@ -1145,12 +1148,40 @@ public class JCurl {
         }
     }
 
-    private static String urlEncode(String value) {
+    public static String urlEncode(String value) {
         try {
             return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8.name());
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static String b64Encode(byte[] src) {
+        return java.util.Base64.getEncoder().encodeToString(src);
+    }
+
+    public static byte[] b64Decode(String src) {
+        return java.util.Base64.getDecoder().decode(src);
+    }
+
+    public static byte[] readInputStream(InputStream inputStream, long maxDownloadSize) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        byte[] data = new byte[8192];
+        int bytesRead;
+        long totalBytesRead = 0;
+
+        while ((bytesRead = inputStream.read(data)) != -1) {
+            totalBytesRead += bytesRead;
+
+            // 检查最大下载大小限制
+            if (maxDownloadSize > 0 && totalBytesRead > maxDownloadSize) {
+                throw new IOException("response body size more than max-download-size limit:  " + maxDownloadSize + " bytes");
+            }
+
+            buffer.write(data, 0, bytesRead);
+        }
+
+        return buffer.toByteArray();
     }
 
     private static byte[] readBinaryFile(String filePath) throws IOException {
@@ -1954,8 +1985,7 @@ public class JCurl {
             if (config.getProxyUsername() != null && !config.getProxyUsername().isEmpty()) {
                 String proxyAuth = config.getProxyUsername() + ":" +
                         (config.getProxyPassword() != null ? config.getProxyPassword() : "");
-                String encodedProxyAuth = Base64.getEncoder()
-                        .encodeToString(proxyAuth.getBytes(StandardCharsets.UTF_8));
+                String encodedProxyAuth = b64Encode(proxyAuth.getBytes(StandardCharsets.UTF_8));
                 connection.setRequestProperty(Constants.PROXY_AUTHORIZATION, Constants.BASIC_SPACE + encodedProxyAuth);
             }
         }
@@ -1972,8 +2002,7 @@ public class JCurl {
             if (requestModel.getUsername() != null) {
                 String auth = requestModel.getUsername() + ":" +
                         (requestModel.getPassword() != null ? requestModel.getPassword() : "");
-                String encodedAuth = Base64.getEncoder()
-                        .encodeToString(auth.getBytes(StandardCharsets.UTF_8));
+                String encodedAuth = b64Encode(auth.getBytes(StandardCharsets.UTF_8));
                 connection.setRequestProperty(Constants.AUTHORIZATION, Constants.BASIC_SPACE + encodedAuth);
             }
 
@@ -2116,8 +2145,10 @@ public class JCurl {
                 if (inputStream != null) {
                     // 处理压缩
                     String contentEncoding = connection.getContentEncoding();
-                    if (Constants.GZIP_VALUE.equalsIgnoreCase(contentEncoding)) {
+                    if (GZIP_VALUE.equalsIgnoreCase(contentEncoding)) {
                         inputStream = new GZIPInputStream(inputStream);
+                    } else if (DEFLATE_VALUE.equalsIgnoreCase(contentEncoding)) {
+                        inputStream = new InflaterInputStream(inputStream);
                     }
                     // 读取响应体（考虑最大下载大小限制）
                     byte[] bodyBytes = readInputStream(inputStream, requestModel.getConfig().getMaxDownloadSize());
@@ -2136,26 +2167,6 @@ public class JCurl {
             }
 
             return response;
-        }
-
-        private byte[] readInputStream(InputStream inputStream, long maxDownloadSize) throws IOException {
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            byte[] data = new byte[8192];
-            int bytesRead;
-            long totalBytesRead = 0;
-
-            while ((bytesRead = inputStream.read(data)) != -1) {
-                totalBytesRead += bytesRead;
-
-                // 检查最大下载大小限制
-                if (maxDownloadSize > 0 && totalBytesRead > maxDownloadSize) {
-                    throw new IOException("response body size more than max-download-size limit:  " + maxDownloadSize + " bytes");
-                }
-
-                buffer.write(data, 0, bytesRead);
-            }
-
-            return buffer.toByteArray();
         }
 
         private void installTrustAllCerts(HttpsURLConnection connection) {

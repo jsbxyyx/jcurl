@@ -11,10 +11,9 @@ import okhttp3.Response;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
@@ -59,8 +58,7 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
         return executeWithRetry(
                 client,
                 request,
-                requestModel.getConfig().getMaxRetries(),
-                requestModel.getConfig().getRetryDelay());
+                requestModel);
     }
 
     private static OkHttpClient buildClient(JCurl.HttpRequestModel requestModel) {
@@ -226,15 +224,17 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
     }
 
     private static JCurl.HttpResponseModel executeWithRetry(
-            OkHttpClient client, Request request, int maxRetries, int retryDelay)
+            OkHttpClient client, Request request, JCurl.HttpRequestModel requestModel)
             throws IOException {
+        int maxRetries = requestModel.getConfig().getMaxRetries();
+        int retryDelay = requestModel.getConfig().getRetryDelay();
         int attempts = 0;
         IOException lastException = null;
 
         while (attempts <= maxRetries) {
             try {
                 Response response = client.newCall(request).execute();
-                return buildResponse(response);
+                return buildResponse(response, requestModel);
             } catch (IOException e) {
                 lastException = e;
                 attempts++;
@@ -253,7 +253,7 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
         throw new IOException("request failed，retry " + maxRetries + " times", lastException);
     }
 
-    private static JCurl.HttpResponseModel buildResponse(Response response) throws IOException {
+    private static JCurl.HttpResponseModel buildResponse(Response response, JCurl.HttpRequestModel requestModel) throws IOException {
         JCurl.HttpResponseModel result = new JCurl.HttpResponseModel();
         result.setStatusCode(response.code());
         result.setStatusMessage(response.message());
@@ -267,14 +267,16 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
 
         // 响应体
         if (response.body() != null) {
-            byte[] bodyBytes = response.body().bytes();
-            // 处理gzip压缩
+            InputStream inputStream = response.body().byteStream();
+            // 处理压缩
             String encoding = response.header(CONTENT_ENCODING);
             if (GZIP_VALUE.equalsIgnoreCase(encoding)) {
-                bodyBytes = decompressGzip(bodyBytes);
+                inputStream = new GZIPInputStream(inputStream);
             } else if (DEFLATE_VALUE.equalsIgnoreCase(encoding)) {
-                bodyBytes = decompressDeflate(bodyBytes);
+                inputStream = new InflaterInputStream(inputStream);
             }
+            // 读取响应体（考虑最大下载大小限制）
+            byte[] bodyBytes = JCurl.readInputStream(inputStream, requestModel.getConfig().getMaxDownloadSize());
             result.setBodyBytes(bodyBytes);
         }
 
@@ -308,40 +310,6 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
             builder.hostnameVerifier((hostname, session) -> true);
         } catch (Exception e) {
             throw new RuntimeException("config SSL failed.", e);
-        }
-    }
-
-    /**
-     * 解压gzip数据
-     */
-    private static byte[] decompressGzip(byte[] compressed) throws IOException {
-        try (ByteArrayInputStream bis = new ByteArrayInputStream(compressed);
-             GZIPInputStream gzipStream = new GZIPInputStream(bis);
-             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-
-            byte[] buffer = new byte[8192];
-            int len;
-            while ((len = gzipStream.read(buffer)) != -1) {
-                bos.write(buffer, 0, len);
-            }
-            return bos.toByteArray();
-        }
-    }
-
-    /**
-     * 解压deflate数据
-     */
-    private static byte[] decompressDeflate(byte[] compressed) throws IOException {
-        try (ByteArrayInputStream bis = new ByteArrayInputStream(compressed);
-             InflaterInputStream inflaterStream = new InflaterInputStream(bis);
-             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-
-            byte[] buffer = new byte[8192];
-            int len;
-            while ((len = inflaterStream.read(buffer)) != -1) {
-                bos.write(buffer, 0, len);
-            }
-            return bos.toByteArray();
         }
     }
 }

@@ -13,57 +13,85 @@ public class CurlTest {
                 "-H 'Authorization: Bearer token123' " +
                 "-d '{\"user\":\"john\",\"action\":\"login\"}'";
 
-        JCurl.HttpResponseModel response = JCurl.fromCurl(curlCommand).exec();
+        JCurl opt = JCurl.fromCurl(curlCommand);
 
-        System.out.println("状态码: " + response.getStatusCode());
-        System.out.println("响应: " + response.getBody());
+        JCurl.HttpResponseModel response = opt.exec();
+        System.out.println("状态码: " + response.getStatusCode() + "\n响应: " + response.getBody());
+
+        response = opt.exec(OkHttpExecutor.create());
+        System.out.println("状态码: " + response.getStatusCode() + "\n响应: " + response.getBody());
+
+        response = opt.exec(HttpClient4Executor.create());
+        System.out.println("状态码: " + response.getStatusCode() + "\n响应: " + response.getBody());
     }
 
     @Test
     void test2() throws Exception {
         {
-            JCurl.HttpResponseModel responseModel = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
-                            " -H \"Content-Type: application/json\" " +
-                            " -d '{\"name\": \"test\"}'")
-                    .exec(OkHttpExecutor.create());
+            JCurl opt = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
+                    " -H \"Content-Type: application/json\" " +
+                    " -d '{\"name\": \"test\"}'");
+            JCurl.HttpResponseModel responseModel = opt.exec();
+            System.out.println("contains Content-Type: application/json : " + responseModel.getBody().contains("application/json"));
+
+            responseModel = opt.exec(OkHttpExecutor.create());
+            System.out.println("contains Content-Type: application/json : " + responseModel.getBody().contains("application/json"));
+
+            responseModel = opt.exec(HttpClient4Executor.create());
             System.out.println("contains Content-Type: application/json : " + responseModel.getBody().contains("application/json"));
         }
         {
-            JCurl.HttpResponseModel responseModel = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
+            JCurl opt = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
                             " -H \"Content-Type: text/plain\" " +
-                            " -d '{\"name\": \"test\"}'")
-                    .exec(OkHttpExecutor.create());
+                            " -d '{\"name\": \"test\"}'");
+            JCurl.HttpResponseModel responseModel = opt.exec();
+            System.out.println("contains Content-Type: text/plain : " + responseModel.getBody().contains("text/plain"));
+
+            responseModel = opt.exec(OkHttpExecutor.create());
+            System.out.println("contains Content-Type: text/plain : " + responseModel.getBody().contains("text/plain"));
+
+            responseModel = opt.exec(HttpClient4Executor.create());
             System.out.println("contains Content-Type: text/plain : " + responseModel.getBody().contains("text/plain"));
         }
         {
-            JCurl.HttpResponseModel responseModel = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
-                            " -H \"Content-Type: text/plain\" " +
-                            " -d '{\"name\": \"test\"}'")
-                    .exec();
-            System.out.println("contains Content-Type: text/plain : " + responseModel.getBody().contains("text/plain"));
-        }
-        {
-            JCurl.HttpResponseModel responseModel = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
-                            " -H \"Content-Type: application/json\" " +
-                            " -d '{\"name\": \"test\"}'")
-                    .exec();
-            System.out.println("contains Content-Type: application/json : " + responseModel.getBody().contains("application/json"));
-        }
-        {
-            JCurl.HttpResponseModel responseModel = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
+            JCurl opt = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
                             " -H \"Content-Type: application/json\" " +
                             " -H \"Origin: http://localhost\" " +
-                            " -d '{\"name\": \"test\"}'")
-                    .exec();
+                            " -d '{\"name\": \"test\"}'");
+            JCurl.HttpResponseModel responseModel = opt.exec();
+            System.out.println("contains Origin: http://localhost : " + responseModel.getBody().contains("http://localhost"));
+
+            responseModel = opt.exec(OkHttpExecutor.create());
+            System.out.println("contains Origin: http://localhost : " + responseModel.getBody().contains("http://localhost"));
+
+            responseModel = opt.exec(HttpClient4Executor.create());
             System.out.println("contains Origin: http://localhost : " + responseModel.getBody().contains("http://localhost"));
         }
         {
-            JCurl.HttpResponseModel responseModel = JCurl.fromCurl("curl -X POST https://httpbin.org/post " +
-                            " -H \"Content-Type: application/json\" " +
-                            " -H \"Origin: http://localhost\" " +
-                            " -d '{\"name\": \"test\"}'")
-                    .exec(OkHttpExecutor.create());
-            System.out.println("contains Origin: http://localhost : " + responseModel.getBody().contains("http://localhost"));
+            // gzip
+            JCurl opt = JCurl.fromCurl("curl -X GET https://httpbin.org/gzip " +
+                    " -H \"Accept-Encoding: gzip\"");
+            JCurl.HttpResponseModel responseModel = opt.exec();
+            System.out.println("contains gzipped : " + responseModel.getBody().contains("\"gzipped\": true"));
+
+            responseModel = opt.exec(OkHttpExecutor.create());
+            System.out.println("contains gzipped : " + responseModel.getBody().contains("\"gzipped\": true"));
+
+            responseModel = opt.exec(HttpClient4Executor.create());
+            System.out.println("contains gzipped : " + responseModel.getBody().contains("\"gzipped\": true"));
+        }
+        {
+            // deflate
+            JCurl opt = JCurl.fromCurl("curl -X GET https://httpbin.org/deflate " +
+                    " -H \"Accept-Encoding: deflate\"");
+            JCurl.HttpResponseModel responseModel = opt.exec();
+            System.out.println("contains deflated : " + responseModel.getBody().contains("\"deflated\": true"));
+
+            responseModel = opt.exec(OkHttpExecutor.create());
+            System.out.println("contains deflated : " + responseModel.getBody().contains("\"deflated\": true"));
+
+            responseModel = opt.exec(HttpClient4Executor.create());
+            System.out.println("contains deflated : " + responseModel.getBody().contains("\"deflated\": true"));
         }
     }
 
@@ -73,7 +101,7 @@ public class CurlTest {
         String marketCode = "0.002228";
         int lmt = 90;
         // 2025-12-19,3.99,4.37,4.40,3.99,1292773,572007570.88,10.28,9.52,0.38,10.69
-        JCurl.HttpResponseModel response = JCurl.create()
+        JCurl opt = JCurl.create()
                 .url("https://push2his.eastmoney.com/api/qt/stock/kline/get?" + "cb="
                         + // ("jQuery351017655795968013988_" + ts) +
                         "&secid="
@@ -96,9 +124,15 @@ public class CurlTest {
                 .opt("-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36")
                 .opt("-H", "sec-ch-ua: \"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"")
                 .opt("-H", "sec-ch-ua-mobile: ?0")
-                .opt("-H", "sec-ch-ua-platform: \"Windows\"")
-                .exec(OkHttpExecutor.create());
+                .opt("-H", "sec-ch-ua-platform: \"Windows\"");
 
+        JCurl.HttpResponseModel response = opt.exec();
+        System.out.println(response.getStatusCode() + " : " + response.getBody());
+
+        response = opt.exec(OkHttpExecutor.create());
+        System.out.println(response.getStatusCode() + " : " + response.getBody());
+
+        response = opt.exec(HttpClient4Executor.create());
         System.out.println(response.getStatusCode() + " : " + response.getBody());
     }
 
