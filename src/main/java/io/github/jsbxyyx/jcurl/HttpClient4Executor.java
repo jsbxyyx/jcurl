@@ -1,8 +1,13 @@
 package io.github.jsbxyyx.jcurl;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
@@ -18,6 +23,7 @@ import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -29,6 +35,8 @@ import javax.net.ssl.X509TrustManager;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.security.cert.X509Certificate;
 import java.util.List;
@@ -51,6 +59,8 @@ import static io.github.jsbxyyx.jcurl.JCurl.Constants.GZIP_VALUE;
  * 需要依赖: org.apache.httpcomponents:httpclient:4.5.x
  */
 public class HttpClient4Executor implements JCurl.HttpExecutor {
+
+    private static final Log log = LogFactory.getLog(HttpClient4Executor.class);
 
     private static final HttpClient4Executor executor = new HttpClient4Executor();
 
@@ -86,17 +96,50 @@ public class HttpClient4Executor implements JCurl.HttpExecutor {
 
         // 请求配置
         RequestConfig.Builder configBuilder = RequestConfig.custom()
-                .setConnectTimeout((int) requestModel.getConfig().getConnectTimeout())
-                .setSocketTimeout((int) requestModel.getConfig().getReadTimeout())
-                .setConnectionRequestTimeout((int) requestModel.getConfig().getReadTimeout());
+                .setConnectTimeout(requestModel.getConfig().getConnectTimeout())
+                .setSocketTimeout(requestModel.getConfig().getReadTimeout())
+                .setConnectionRequestTimeout(requestModel.getConfig().getReadTimeout());
 
         // 代理设置
         if (requestModel.getConfig().getProxy() != null) {
-            // HttpClient4不支持在此处设置代理，需要在请求执行时设置
-            // 这里仅保留接口一致性
+            if (requestModel.getConfig().getProxy().type() == Proxy.Type.HTTP) {
+                InetSocketAddress address = (InetSocketAddress) requestModel.getConfig().getProxy().address();
+                HttpHost httpHost = new HttpHost(address.getHostName(), address.getPort());
+                configBuilder.setProxy(httpHost);
+                if (requestModel.getConfig().getProxyUsername() != null) {
+                    BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                    credentialsProvider.setCredentials(
+                            new AuthScope(address.getHostName(), address.getPort()),
+                            new UsernamePasswordCredentials(requestModel.getConfig().getProxyUsername(),
+                                    requestModel.getConfig().getProxyPassword() != null
+                                            ? requestModel.getConfig().getProxyPassword()
+                                            : "")
+                    );
+                    builder.setDefaultCredentialsProvider(credentialsProvider);
+                }
+            } else {
+                log.warn("Current only implements HTTP proxy is supported in HttpClient4Executor.");
+            }
         } else if (requestModel.getConfig().getProxyHost() != null
                 && requestModel.getConfig().getProxyPort() > 0) {
             // 代理设置也需要在执行时处理
+            if (requestModel.getConfig().getProxyType() == Proxy.Type.HTTP) {
+                HttpHost httpHost = new HttpHost(requestModel.getConfig().getProxyHost(), requestModel.getConfig().getProxyPort());
+                configBuilder.setProxy(httpHost);
+                if (requestModel.getConfig().getProxyUsername() != null) {
+                    BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                    credentialsProvider.setCredentials(
+                            new AuthScope(requestModel.getConfig().getProxyHost(), requestModel.getConfig().getProxyPort()),
+                            new UsernamePasswordCredentials(requestModel.getConfig().getProxyUsername(),
+                                    requestModel.getConfig().getProxyPassword() != null
+                                            ? requestModel.getConfig().getProxyPassword()
+                                            : "")
+                    );
+                    builder.setDefaultCredentialsProvider(credentialsProvider);
+                }
+            } else {
+                log.warn("Current only implements HTTP proxy is supported in HttpClient4Executor.");
+            }
         }
 
         RequestConfig requestConfig = configBuilder.build();
