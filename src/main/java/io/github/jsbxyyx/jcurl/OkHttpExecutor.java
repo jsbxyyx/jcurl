@@ -15,6 +15,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
@@ -42,13 +43,21 @@ import static io.github.jsbxyyx.jcurl.JCurl.Constants.PROXY_AUTHORIZATION;
  */
 public class OkHttpExecutor implements JCurl.HttpExecutor {
 
-    private static final OkHttpExecutor executor = new OkHttpExecutor();
+    private static final OkHttpExecutor DEFAULT = new OkHttpExecutor(null);
 
-    private OkHttpExecutor() {
+    private final OkHttpClient baseClient;
+
+    private OkHttpExecutor(OkHttpClient baseClient) {
+        this.baseClient = baseClient;
     }
 
     public static OkHttpExecutor create() {
-        return executor;
+        return DEFAULT;
+    }
+
+    public static OkHttpExecutor create(OkHttpClient baseClient) {
+        if (baseClient == null) throw new IllegalArgumentException("baseClient cannot be null");
+        return new OkHttpExecutor(baseClient);
     }
 
     public JCurl.HttpResponseModel execute(JCurl.HttpRequestModel requestModel) throws IOException {
@@ -63,9 +72,84 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
                 requestModel.getConfig().getRetryDelay());
     }
 
-    private static OkHttpClient buildClient(JCurl.HttpRequestModel requestModel) {
-        OkHttpClient.Builder builder = new OkHttpClient.Builder()
-                .connectTimeout(requestModel.getConfig().getConnectTimeout(), TimeUnit.MILLISECONDS)
+    @Override
+    public JCurl.HttpResponseModel executeStream(JCurl.HttpRequestModel requestModel, JCurl.StreamHandler handler) throws IOException {
+        OkHttpClient client = buildClient(requestModel);
+        Request request = buildRequest(requestModel);
+        int maxRetries = requestModel.getConfig().getMaxRetries();
+        int retryDelay = requestModel.getConfig().getRetryDelay();
+        int attempts = 0;
+        IOException lastException = null;
+
+        while (attempts <= maxRetries) {
+            try {
+                Response response = client.newCall(request).execute();
+                return buildResponseStream(response, requestModel.getConfig().getMaxDownloadSize(), handler);
+            } catch (IOException e) {
+                lastException = e;
+                attempts++;
+                if (attempts <= maxRetries) {
+                    try {
+                        Thread.sleep(retryDelay);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException("retry interrupt", ie);
+                    }
+                }
+            }
+        }
+
+        throw new IOException("request failed，retry " + maxRetries + " times", lastException);
+    }
+
+    private static JCurl.HttpResponseModel buildResponseStream(Response response, long maxDownloadSize, JCurl.StreamHandler handler) throws IOException {
+        JCurl.HttpResponseModel result = new JCurl.HttpResponseModel();
+        result.setStatusCode(response.code());
+        result.setStatusMessage(response.message());
+
+        for (String name : response.headers().names()) {
+            for (String value : response.headers(name)) {
+                result.addHeader(name, value);
+            }
+        }
+
+        handler.onStart(result.getStatusCode(), result.getStatusMessage(), result.getHeaders());
+
+        if (response.body() != null) {
+            String encoding = response.header(CONTENT_ENCODING);
+            InputStream bodyStream = response.body().byteStream();
+            if (GZIP_VALUE.equalsIgnoreCase(encoding)) {
+                bodyStream = new GZIPInputStream(bodyStream);
+            } else if (DEFLATE_VALUE.equalsIgnoreCase(encoding)) {
+                bodyStream = new InflaterInputStream(bodyStream);
+            }
+            try {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                long totalBytesRead = 0;
+                while ((bytesRead = bodyStream.read(buffer)) != -1) {
+                    totalBytesRead += bytesRead;
+                    if (maxDownloadSize > 0 && totalBytesRead > maxDownloadSize) {
+                        throw new IOException("response body size more than max-download-size limit: " + maxDownloadSize + " bytes");
+                    }
+                    byte[] chunk = new byte[bytesRead];
+                    System.arraycopy(buffer, 0, chunk, 0, bytesRead);
+                    handler.onChunk(chunk);
+                }
+            } finally {
+                bodyStream.close();
+            }
+        }
+
+        handler.onComplete();
+        return result;
+    }
+
+    private OkHttpClient buildClient(JCurl.HttpRequestModel requestModel) {
+        OkHttpClient.Builder builder = baseClient != null
+                ? baseClient.newBuilder()
+                : new OkHttpClient.Builder();
+        builder.connectTimeout(requestModel.getConfig().getConnectTimeout(), TimeUnit.MILLISECONDS)
                 .readTimeout(requestModel.getConfig().getReadTimeout(), TimeUnit.MILLISECONDS)
                 .followRedirects(requestModel.getConfig().isFollowRedirects())
                 .followSslRedirects(requestModel.getConfig().isFollowRedirects());
@@ -85,7 +169,7 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
                         new InetSocketAddress(
                                 requestModel.getConfig().getProxyHost(),
                                 requestModel.getConfig().getProxyPort()));
-                builder.proxy(requestModel.getConfig().getProxy());
+                builder.proxy(proxy);
                 isProxy = true;
             }
         } else {

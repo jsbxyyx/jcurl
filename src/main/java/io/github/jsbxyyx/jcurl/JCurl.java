@@ -1820,8 +1820,36 @@ public class JCurl {
         return executor.execute(request);
     }
 
-    interface HttpExecutor {
+    public HttpResponseModel execStream(StreamHandler handler) throws IOException {
+        return execStream(HttpUrlConnectionExecutor.create(), handler);
+    }
+
+    public HttpResponseModel execStream(HttpExecutor executor, StreamHandler handler) throws IOException {
+        return executor.executeStream(request, handler);
+    }
+
+    @FunctionalInterface
+    public interface StreamHandler {
+        default void onStart(int statusCode, String statusMessage, Map<String, List<String>> headers) throws IOException {}
+
+        void onChunk(byte[] chunk) throws IOException;
+
+        default void onComplete() throws IOException {}
+    }
+
+    public interface HttpExecutor {
         JCurl.HttpResponseModel execute(JCurl.HttpRequestModel requestModel) throws IOException;
+
+        default JCurl.HttpResponseModel executeStream(JCurl.HttpRequestModel requestModel, StreamHandler handler) throws IOException {
+            JCurl.HttpResponseModel response = execute(requestModel);
+            handler.onStart(response.getStatusCode(), response.getStatusMessage(), response.getHeaders());
+            byte[] body = response.getBodyBytes();
+            if (body != null && body.length > 0) {
+                handler.onChunk(body);
+            }
+            handler.onComplete();
+            return response;
+        }
     }
 
     public static class HttpUrlConnectionExecutor implements JCurl.HttpExecutor {
@@ -1870,6 +1898,105 @@ public class JCurl {
             }
 
             throw lastException;
+        }
+
+        @Override
+        public JCurl.HttpResponseModel executeStream(JCurl.HttpRequestModel requestModel, StreamHandler handler) throws IOException {
+            int maxRetries = requestModel.getConfig().getMaxRetries();
+            int retryDelay = requestModel.getConfig().getRetryDelay();
+            IOException lastException = null;
+
+            for (int attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                    return doExecuteStream(requestModel, handler);
+                } catch (IOException e) {
+                    lastException = e;
+                    if (attempt < maxRetries) {
+                        try {
+                            Thread.sleep(retryDelay);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            throw new IOException("request interrupt", ie);
+                        }
+                    }
+                }
+            }
+
+            throw lastException;
+        }
+
+        private JCurl.HttpResponseModel doExecuteStream(JCurl.HttpRequestModel requestModel, StreamHandler handler) throws IOException {
+            HttpURLConnection connection = null;
+            try {
+                connection = createConnection(requestModel);
+                configureConnection(connection, requestModel);
+                setHeaders(connection, requestModel);
+                sendRequestBody(connection, requestModel);
+                return getResponseStream(connection, requestModel, handler);
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
+            }
+        }
+
+        private JCurl.HttpResponseModel getResponseStream(HttpURLConnection connection,
+                                                          JCurl.HttpRequestModel requestModel,
+                                                          StreamHandler handler) throws IOException {
+            JCurl.HttpResponseModel response = new JCurl.HttpResponseModel();
+            response.setStatusCode(connection.getResponseCode());
+            response.setStatusMessage(connection.getResponseMessage());
+
+            Map<String, List<String>> headerFields = connection.getHeaderFields();
+            for (Map.Entry<String, List<String>> entry : headerFields.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null && !entry.getValue().isEmpty()) {
+                    for (String value : entry.getValue()) {
+                        response.addHeader(entry.getKey(), value);
+                    }
+                }
+            }
+
+            handler.onStart(response.getStatusCode(), response.getStatusMessage(), response.getHeaders());
+
+            InputStream inputStream = null;
+            try {
+                inputStream = response.getStatusCode() >= 400
+                        ? connection.getErrorStream()
+                        : connection.getInputStream();
+                if (inputStream != null) {
+                    String contentEncoding = connection.getContentEncoding();
+                    if (Constants.GZIP_VALUE.equalsIgnoreCase(contentEncoding)) {
+                        inputStream = new GZIPInputStream(inputStream);
+                    }
+                    streamToHandler(inputStream, requestModel.getConfig().getMaxDownloadSize(), handler);
+                }
+            } finally {
+                if (inputStream != null) {
+                    try {
+                        inputStream.close();
+                    } catch (IOException ignored) {
+                    }
+                }
+            }
+
+            handler.onComplete();
+            return response;
+        }
+
+        private void streamToHandler(InputStream inputStream, long maxDownloadSize, StreamHandler handler) throws IOException {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            long totalBytesRead = 0;
+
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                totalBytesRead += bytesRead;
+                if (maxDownloadSize > 0 && totalBytesRead > maxDownloadSize) {
+                    throw new IOException("response body size more than max-download-size limit: " + maxDownloadSize + " bytes");
+                }
+                byte[] chunk = new byte[bytesRead];
+                System.arraycopy(buffer, 0, chunk, 0, bytesRead);
+                handler.onChunk(chunk);
+            }
         }
 
         private JCurl.HttpResponseModel doExecute(JCurl.HttpRequestModel requestModel) throws IOException {
