@@ -6,6 +6,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -53,7 +54,8 @@ public class JCurl {
 
         public static final String APPLICATION_OCTET_STREAM_VALUE = "application/octet-stream";
         public static final String MULTIPART_FORM_DATA_VALUE = "multipart/form-data";
-        public static final String APPLICATION_X_WWW_FORM_URLENCODED_VALUE = "application/x-www-form-urlencoded";
+        public static final String APPLICATION_X_WWW_FORM_URLENCODED_VALUE =
+                "application/x-www-form-urlencoded";
         public static final String GZIP_DEFLATE_VALUE = "gzip, deflate";
         public static final String BINARY_VALUE = "binary";
         public static final String GZIP_VALUE = "gzip";
@@ -71,32 +73,24 @@ public class JCurl {
         this.request = new HttpRequestModel();
     }
 
-    /**
-     * 创建构建器实例
-     */
+    /** 创建构建器实例 */
     public static JCurl create() {
         return new JCurl();
     }
 
-    /**
-     * 从curl命令创建
-     */
+    /** 从curl命令创建 */
     public static JCurl fromCurl(String curlCommand) {
         HttpRequestModel model = parse(curlCommand);
         return fromModel(model);
     }
 
-    /**
-     * 从curl命令参数数组创建
-     */
+    /** 从curl命令参数数组创建 */
     public static JCurl fromCurl(String[] args) {
         HttpRequestModel model = parse(args);
         return fromModel(model);
     }
 
-    /**
-     * 从已有模型创建
-     */
+    /** 从已有模型创建 */
     public static JCurl fromModel(HttpRequestModel model) {
         if (model == null) {
             throw new IllegalArgumentException("model cannot be null");
@@ -113,7 +107,8 @@ public class JCurl {
         builder.request.setBinaryBody(model.getBinaryBody());
         if (model.getFormFields() != null) {
             Map<String, List<HttpRequestModel.FormField>> formFieldsCopy = new LinkedHashMap<>();
-            for (Map.Entry<String, List<HttpRequestModel.FormField>> entry : model.getFormFields().entrySet()) {
+            for (Map.Entry<String, List<HttpRequestModel.FormField>> entry :
+                    model.getFormFields().entrySet()) {
                 formFieldsCopy.put(entry.getKey(), new ArrayList<>(entry.getValue()));
             }
             builder.request.setFormFields(formFieldsCopy);
@@ -130,286 +125,216 @@ public class JCurl {
         return builder;
     }
 
-    /**
-     * 设置URL
-     */
+    /** 设置URL */
     public JCurl url(String url) {
         request.setUrl(url);
         return this;
     }
 
-    /**
-     * 设置请求方法
-     */
+    /** 设置请求方法 */
     public JCurl method(String method) {
         request.setMethod(method);
         return this;
     }
 
-    /**
-     * GET请求
-     */
+    /** GET请求 */
     public JCurl get() {
         request.setMethod("GET");
         return this;
     }
 
-    /**
-     * POST请求
-     */
+    /** POST请求 */
     public JCurl post() {
         request.setMethod("POST");
         return this;
     }
 
-    /**
-     * PUT请求
-     */
+    /** PUT请求 */
     public JCurl put() {
         request.setMethod("PUT");
         return this;
     }
 
-    /**
-     * DELETE请求
-     */
+    /** DELETE请求 */
     public JCurl delete() {
         request.setMethod("DELETE");
         return this;
     }
 
-    /**
-     * PATCH请求
-     */
+    /** PATCH请求 */
     public JCurl patch() {
         request.setMethod("PATCH");
         return this;
     }
 
-    /**
-     * HEAD请求
-     */
+    /** HEAD请求 */
     public JCurl head() {
         request.setMethod("HEAD");
         return this;
     }
 
-    /**
-     * 添加header（支持重复key）
-     */
+    /** 添加header（支持重复key） */
     public JCurl header(String key, String value) {
         request.addHeader(key, value);
         return this;
     }
 
-    /**
-     * 设置header（覆盖已有值）
-     */
+    /** 设置header（覆盖已有值） */
     public JCurl setHeader(String key, String value) {
         request.setHeader(key, value);
         return this;
     }
 
-    /**
-     * 批量添加headers
-     */
+    /** 批量添加headers */
     public JCurl headers(Map<String, String> headers) {
         headers.forEach((k, v) -> request.addHeader(k, v));
         return this;
     }
 
-    /**
-     * 添加查询参数（支持重复key）
-     */
+    /** 添加查询参数（支持重复key） */
     public JCurl queryParam(String key, String value) {
         request.addQueryParam(key, value);
         return this;
     }
 
-    /**
-     * 设置查询参数（覆盖已有值）
-     */
+    /** 设置查询参数（覆盖已有值） */
     public JCurl setQueryParam(String key, String value) {
         request.setQueryParam(key, value);
         return this;
     }
 
-    /**
-     * 批量添加查询参数
-     */
+    /** 批量添加查询参数 */
     public JCurl queryParams(Map<String, String> params) {
         params.forEach((k, v) -> request.addQueryParam(k, v));
         return this;
     }
 
-    /**
-     * 设置请求体
-     */
+    /** 设置请求体 */
     public JCurl body(String body) {
         request.setBody(body);
         return this;
     }
 
-    /**
-     * 设置JSON请求体
-     */
+    /** 设置JSON请求体 */
     public JCurl jsonBody(String json) {
         request.setBody(json);
         request.setHeader("Content-Type", "application/json");
         return this;
     }
 
-    /**
-     * 设置二进制请求体
-     */
+    /** 设置二进制请求体 */
     public JCurl binaryBody(byte[] data) {
         request.setBinaryBody(data);
         return this;
     }
 
-    /**
-     * 从文件读取二进制数据
-     */
+    /** 从文件读取二进制数据 */
     public JCurl binaryBodyFromFile(String filePath) throws IOException {
         byte[] data = Files.readAllBytes(Paths.get(filePath));
         request.setBinaryBody(data);
         return this;
     }
 
-    /**
-     * 添加表单字段（文本）
-     */
+    /** 添加表单字段（文本） */
     public JCurl formField(String name, String value) {
         request.addFormField(name, HttpRequestModel.FormField.text(value));
         return this;
     }
 
-    /**
-     * 添加表单字段（文件）
-     */
+    /** 添加表单字段（文件） */
     public JCurl formFile(String name, String filePath) {
         request.addFormField(name, HttpRequestModel.FormField.file(filePath));
         return this;
     }
 
-    /**
-     * 添加表单字段（文件，指定文件名和类型）
-     */
+    /** 添加表单字段（文件，指定文件名和类型） */
     public JCurl formFile(String name, String filePath, String fileName, String contentType) {
         request.addFormField(
                 name, HttpRequestModel.FormField.file(filePath, fileName, contentType));
         return this;
     }
 
-    /**
-     * 设置Basic认证
-     */
+    /** 设置Basic认证 */
     public JCurl auth(String username, String password) {
         request.setUsername(username);
         request.setPassword(password);
         return this;
     }
 
-    /**
-     * 设置Bearer Token
-     */
+    /** 设置Bearer Token */
     public JCurl bearerToken(String token) {
         request.setHeader(Constants.AUTHORIZATION, Constants.BEARER_SPACE + token);
         return this;
     }
 
-    /**
-     * 添加Cookie
-     */
+    /** 添加Cookie */
     public JCurl cookie(String name, String value) {
         request.addCookie(name, value);
         return this;
     }
 
-    /**
-     * 批量添加Cookie
-     */
+    /** 批量添加Cookie */
     public JCurl cookies(Map<String, String> cookies) {
         cookies.forEach((k, v) -> request.addCookie(k, v));
         return this;
     }
 
-    /**
-     * 设置User-Agent
-     */
+    /** 设置User-Agent */
     public JCurl userAgent(String userAgent) {
         request.setHeader(Constants.USER_AGENT, userAgent);
         return this;
     }
 
-    /**
-     * 设置Referer
-     */
+    /** 设置Referer */
     public JCurl referer(String referer) {
         request.setHeader(Constants.REFERER, referer);
         return this;
     }
 
-    /**
-     * 启用压缩
-     */
+    /** 启用压缩 */
     public JCurl compressed() {
         request.getConfig().setCompressed(true);
         request.setHeader(Constants.ACCEPT_ENCODING, Constants.GZIP_DEFLATE_VALUE);
         return this;
     }
 
-    /**
-     * 跟随重定向
-     */
+    /** 跟随重定向 */
     public JCurl followRedirects() {
         request.getConfig().setFollowRedirects(true);
         return this;
     }
 
-    /**
-     * 跟随重定向（指定是否）
-     */
+    /** 跟随重定向（指定是否） */
     public JCurl followRedirects(boolean follow) {
         request.getConfig().setFollowRedirects(follow);
         return this;
     }
 
-    /**
-     * 允许不安全的SSL连接
-     */
+    /** 允许不安全的SSL连接 */
     public JCurl insecure() {
         request.getConfig().setVerifySSL(false);
         return this;
     }
 
-    /**
-     * SSL验证（指定是否）
-     */
+    /** SSL验证（指定是否） */
     public JCurl verifySSL(boolean verify) {
         request.getConfig().setVerifySSL(verify);
         return this;
     }
 
-    /**
-     * 设置连接超时（毫秒）
-     */
+    /** 设置连接超时（毫秒） */
     public JCurl connectTimeout(int millis) {
         request.getConfig().setConnectTimeout(millis);
         return this;
     }
 
-    /**
-     * 设置读取超时（毫秒）
-     */
+    /** 设置读取超时（毫秒） */
     public JCurl readTimeout(int millis) {
         request.getConfig().setReadTimeout(millis);
         return this;
     }
 
-    /**
-     * 设置代理（包含协议URL）
-     */
+    /** 设置代理（包含协议URL） */
     public JCurl proxy(String proxyUrl) {
         parseAndSetProxy(proxyUrl);
         return this;
@@ -420,34 +345,26 @@ public class JCurl {
         return this;
     }
 
-    /**
-     * 设置代理认证
-     */
+    /** 设置代理认证 */
     public JCurl proxyAuth(String username, String password) {
         request.getConfig().setProxyUsername(username);
         request.getConfig().setProxyPassword(password);
         return this;
     }
 
-    /**
-     * 设置重试次数
-     */
+    /** 设置重试次数 */
     public JCurl retry(int maxRetries) {
         request.getConfig().setMaxRetries(maxRetries);
         return this;
     }
 
-    /**
-     * 设置重试延迟（毫秒）
-     */
+    /** 设置重试延迟（毫秒） */
     public JCurl retryDelay(int millis) {
         request.getConfig().setRetryDelay(millis);
         return this;
     }
 
-    /**
-     * 设置最大下载大小（字节）
-     */
+    /** 设置最大下载大小（字节） */
     public JCurl maxDownloadSize(long bytes) {
         request.getConfig().setMaxDownloadSize(bytes);
         return this;
@@ -455,10 +372,7 @@ public class JCurl {
 
     // ==================== curl选项风格的方法 ====================
 
-    /**
-     * curl选项风格的参数设置
-     * 例如:  opt("-H", "Content-Type: application/json")
-     */
+    /** curl选项风格的参数设置 例如: opt("-H", "Content-Type: application/json") */
     public JCurl opt(String option, String value) {
         try {
             switch (option) {
@@ -597,10 +511,7 @@ public class JCurl {
         return this;
     }
 
-    /**
-     * curl选项风格的开关参数
-     * 例如:  opt("-k") 或 opt("--insecure")
-     */
+    /** curl选项风格的开关参数 例如: opt("-k") 或 opt("--insecure") */
     public JCurl opt(String option) {
         switch (option) {
             case "-G":
@@ -677,9 +588,9 @@ public class JCurl {
         String cookies = cookieStr;
         if (new File(cookieStr).exists()) {
             try {
-                cookies = new String(
-                        Files.readAllBytes(Paths.get(cookieStr)), StandardCharsets.UTF_8)
-                        .trim();
+                cookies =
+                        new String(Files.readAllBytes(Paths.get(cookieStr)), StandardCharsets.UTF_8)
+                                .trim();
             } catch (IOException e) {
                 // 如果读取失败，当作字符串处理
             }
@@ -753,9 +664,7 @@ public class JCurl {
 
     // ==================== 构建和执行 ====================
 
-    /**
-     * 构建HttpRequestModel
-     */
+    /** 构建HttpRequestModel */
     public HttpRequestModel build() {
         if (request.getUrl() == null || request.getUrl().isEmpty()) {
             throw new IllegalStateException("URL must be specified");
@@ -769,9 +678,7 @@ public class JCurl {
         return request;
     }
 
-    /**
-     * 获取当前正在构建的请求模型（用于调试）
-     */
+    /** 获取当前正在构建的请求模型（用于调试） */
     public HttpRequestModel peek() {
         return request;
     }
@@ -1061,9 +968,9 @@ public class JCurl {
         String cookies = cookieStr;
         if (new File(cookieStr).exists()) {
             try {
-                cookies = new String(
-                        Files.readAllBytes(Paths.get(cookieStr)), StandardCharsets.UTF_8)
-                        .trim();
+                cookies =
+                        new String(Files.readAllBytes(Paths.get(cookieStr)), StandardCharsets.UTF_8)
+                                .trim();
             } catch (IOException e) {
                 // 如果读取失败，当作字符串处理
             }
@@ -1118,7 +1025,8 @@ public class JCurl {
                 return Proxy.Type.SOCKS;
 
             default:
-                System.err.println("warning: unknown proxy protocol '" + protocol + "', use proxy : HTTP");
+                System.err.println(
+                        "warning: unknown proxy protocol '" + protocol + "', use proxy : HTTP");
                 return Proxy.Type.HTTP;
         }
     }
@@ -1157,9 +1065,7 @@ public class JCurl {
         return Files.readAllBytes(Paths.get(filePath));
     }
 
-    /**
-     * HTTP请求模型 - 支持多值headers和queryParams
-     */
+    /** HTTP请求模型 - 支持多值headers和queryParams */
     public static class HttpRequestModel {
         private String url;
         private String method = "GET";
@@ -1204,33 +1110,25 @@ public class JCurl {
             this.headers = new CaseInsensitiveMap<>(headers);
         }
 
-        /**
-         * 添加单个header值
-         */
+        /** 添加单个header值 */
         public void addHeader(String key, String value) {
             this.headers.computeIfAbsent(key, k -> new ArrayList<>()).add(value);
         }
 
-        /**
-         * 设置header（覆盖已有值）
-         */
+        /** 设置header（覆盖已有值） */
         public void setHeader(String key, String value) {
             List<String> values = new ArrayList<>();
             values.add(value);
             this.headers.put(key, values);
         }
 
-        /**
-         * 获取header的第一个值
-         */
+        /** 获取header的第一个值 */
         public String getHeader(String key) {
             List<String> values = headers.get(key);
             return values != null && !values.isEmpty() ? values.get(0) : null;
         }
 
-        /**
-         * 获取header的所有值
-         */
+        /** 获取header的所有值 */
         public List<String> getHeaderValues(String key) {
             return headers.getOrDefault(key, Collections.emptyList());
         }
@@ -1297,33 +1195,25 @@ public class JCurl {
             this.queryParams = queryParams;
         }
 
-        /**
-         * 添加单个查询参数值
-         */
+        /** 添加单个查询参数值 */
         public void addQueryParam(String key, String value) {
             this.queryParams.computeIfAbsent(key, k -> new ArrayList<>()).add(value);
         }
 
-        /**
-         * 设置查询参数（覆盖已有值）
-         */
+        /** 设置查询参数（覆盖已有值） */
         public void setQueryParam(String key, String value) {
             List<String> values = new ArrayList<>();
             values.add(value);
             this.queryParams.put(key, values);
         }
 
-        /**
-         * 获取查询参数的第一个值
-         */
+        /** 获取查询参数的第一个值 */
         public String getQueryParam(String key) {
             List<String> values = queryParams.get(key);
             return values != null && !values.isEmpty() ? values.get(0) : null;
         }
 
-        /**
-         * 获取查询参数的所有值
-         */
+        /** 获取查询参数的所有值 */
         public List<String> getQueryParamValues(String key) {
             return queryParams.getOrDefault(key, Collections.emptyList());
         }
@@ -1364,9 +1254,7 @@ public class JCurl {
             this.config = config;
         }
 
-        /**
-         * 获取完整URL（包含查询参数）
-         */
+        /** 获取完整URL（包含查询参数） */
         public String getFullUrl() {
             if (queryParams.isEmpty()) {
                 return url;
@@ -1398,19 +1286,27 @@ public class JCurl {
 
         @Override
         public String toString() {
-            return "HttpRequestModel{" + "url='"
-                    + url + '\'' + ", method='"
-                    + method + '\'' + ", headers="
-                    + headers.size() + ", hasBody="
-                    + (body != null || binaryBody != null) + ", formFields="
-                    + (formFields != null ? formFields.size() : 0) + ", queryParams="
-                    + queryParams.size() + ", config="
-                    + config + '}';
+            return "HttpRequestModel{"
+                    + "url='"
+                    + url
+                    + '\''
+                    + ", method='"
+                    + method
+                    + '\''
+                    + ", headers="
+                    + headers.size()
+                    + ", hasBody="
+                    + (body != null || binaryBody != null)
+                    + ", formFields="
+                    + (formFields != null ? formFields.size() : 0)
+                    + ", queryParams="
+                    + queryParams.size()
+                    + ", config="
+                    + config
+                    + '}';
         }
 
-        /**
-         * 表单字段
-         */
+        /** 表单字段 */
         public static class FormField {
             private String value;
             private String filePath;
@@ -1484,9 +1380,7 @@ public class JCurl {
             }
         }
 
-        /**
-         * 请求配置
-         */
+        /** 请求配置 */
         public static class RequestConfig {
             private int connectTimeout = 30000;
             private int readTimeout = 60000;
@@ -1642,9 +1536,7 @@ public class JCurl {
         }
     }
 
-    /**
-     * HTTP响应模型
-     */
+    /** HTTP响应模型 */
     public static class HttpResponseModel {
         private int statusCode;
         private String statusMessage;
@@ -1720,11 +1612,17 @@ public class JCurl {
 
         @Override
         public String toString() {
-            return "HttpResponseModel{" + "statusCode="
-                    + statusCode + ", statusMessage='"
-                    + statusMessage + '\'' + ", headers="
-                    + headers.size() + ", bodyLength="
-                    + (bodyBytes != null ? bodyBytes.length : 0) + '}';
+            return "HttpResponseModel{"
+                    + "statusCode="
+                    + statusCode
+                    + ", statusMessage='"
+                    + statusMessage
+                    + '\''
+                    + ", headers="
+                    + headers.size()
+                    + ", bodyLength="
+                    + (bodyBytes != null ? bodyBytes.length : 0)
+                    + '}';
         }
     }
 
@@ -1809,7 +1707,6 @@ public class JCurl {
         public Set<java.util.Map.Entry<String, V>> entrySet() {
             return wrappedMap.entrySet();
         }
-
     }
 
     public HttpResponseModel exec() throws IOException {
@@ -1824,13 +1721,16 @@ public class JCurl {
         return execStream(HttpUrlConnectionExecutor.create(), handler);
     }
 
-    public HttpResponseModel execStream(HttpExecutor executor, StreamHandler handler) throws IOException {
+    public HttpResponseModel execStream(HttpExecutor executor, StreamHandler handler)
+            throws IOException {
         return executor.executeStream(request, handler);
     }
 
     @FunctionalInterface
     public interface StreamHandler {
-        default void onStart(int statusCode, String statusMessage, Map<String, List<String>> headers) throws IOException {}
+        default void onStart(
+                int statusCode, String statusMessage, Map<String, List<String>> headers)
+                throws IOException {}
 
         void onChunk(byte[] chunk) throws IOException;
 
@@ -1840,9 +1740,11 @@ public class JCurl {
     public interface HttpExecutor {
         JCurl.HttpResponseModel execute(JCurl.HttpRequestModel requestModel) throws IOException;
 
-        default JCurl.HttpResponseModel executeStream(JCurl.HttpRequestModel requestModel, StreamHandler handler) throws IOException {
+        default JCurl.HttpResponseModel executeStream(
+                JCurl.HttpRequestModel requestModel, StreamHandler handler) throws IOException {
             JCurl.HttpResponseModel response = execute(requestModel);
-            handler.onStart(response.getStatusCode(), response.getStatusMessage(), response.getHeaders());
+            handler.onStart(
+                    response.getStatusCode(), response.getStatusMessage(), response.getHeaders());
             byte[] body = response.getBodyBytes();
             if (body != null && body.length > 0) {
                 handler.onChunk(body);
@@ -1859,7 +1761,8 @@ public class JCurl {
 
         static {
             try {
-                // Try to enable the setting to restricted headers like "Origin", this is expected to be executed before HttpURLConnection class-loading
+                // Try to enable the setting to restricted headers like "Origin", this is expected
+                // to be executed before HttpURLConnection class-loading
                 System.setProperty("sun.net.http.allowRestrictedHeaders", "true");
             } catch (Exception ignored) {
             }
@@ -1867,15 +1770,15 @@ public class JCurl {
 
         private static final HttpUrlConnectionExecutor executor = new HttpUrlConnectionExecutor();
 
-        private HttpUrlConnectionExecutor() {
-        }
+        private HttpUrlConnectionExecutor() {}
 
         public static HttpUrlConnectionExecutor create() {
             return executor;
         }
 
         @Override
-        public JCurl.HttpResponseModel execute(JCurl.HttpRequestModel requestModel) throws IOException {
+        public JCurl.HttpResponseModel execute(JCurl.HttpRequestModel requestModel)
+                throws IOException {
             int maxRetries = requestModel.getConfig().getMaxRetries();
             int retryDelay = requestModel.getConfig().getRetryDelay();
 
@@ -1901,7 +1804,8 @@ public class JCurl {
         }
 
         @Override
-        public JCurl.HttpResponseModel executeStream(JCurl.HttpRequestModel requestModel, StreamHandler handler) throws IOException {
+        public JCurl.HttpResponseModel executeStream(
+                JCurl.HttpRequestModel requestModel, StreamHandler handler) throws IOException {
             int maxRetries = requestModel.getConfig().getMaxRetries();
             int retryDelay = requestModel.getConfig().getRetryDelay();
             IOException lastException = null;
@@ -1925,7 +1829,8 @@ public class JCurl {
             throw lastException;
         }
 
-        private JCurl.HttpResponseModel doExecuteStream(JCurl.HttpRequestModel requestModel, StreamHandler handler) throws IOException {
+        private JCurl.HttpResponseModel doExecuteStream(
+                JCurl.HttpRequestModel requestModel, StreamHandler handler) throws IOException {
             HttpURLConnection connection = null;
             try {
                 connection = createConnection(requestModel);
@@ -1940,35 +1845,42 @@ public class JCurl {
             }
         }
 
-        private JCurl.HttpResponseModel getResponseStream(HttpURLConnection connection,
-                                                          JCurl.HttpRequestModel requestModel,
-                                                          StreamHandler handler) throws IOException {
+        private JCurl.HttpResponseModel getResponseStream(
+                HttpURLConnection connection,
+                JCurl.HttpRequestModel requestModel,
+                StreamHandler handler)
+                throws IOException {
             JCurl.HttpResponseModel response = new JCurl.HttpResponseModel();
             response.setStatusCode(connection.getResponseCode());
             response.setStatusMessage(connection.getResponseMessage());
 
             Map<String, List<String>> headerFields = connection.getHeaderFields();
             for (Map.Entry<String, List<String>> entry : headerFields.entrySet()) {
-                if (entry.getKey() != null && entry.getValue() != null && !entry.getValue().isEmpty()) {
+                if (entry.getKey() != null
+                        && entry.getValue() != null
+                        && !entry.getValue().isEmpty()) {
                     for (String value : entry.getValue()) {
                         response.addHeader(entry.getKey(), value);
                     }
                 }
             }
 
-            handler.onStart(response.getStatusCode(), response.getStatusMessage(), response.getHeaders());
+            handler.onStart(
+                    response.getStatusCode(), response.getStatusMessage(), response.getHeaders());
 
             InputStream inputStream = null;
             try {
-                inputStream = response.getStatusCode() >= 400
-                        ? connection.getErrorStream()
-                        : connection.getInputStream();
+                inputStream =
+                        response.getStatusCode() >= 400
+                                ? connection.getErrorStream()
+                                : connection.getInputStream();
                 if (inputStream != null) {
                     String contentEncoding = connection.getContentEncoding();
                     if (Constants.GZIP_VALUE.equalsIgnoreCase(contentEncoding)) {
                         inputStream = new GZIPInputStream(inputStream);
                     }
-                    streamToHandler(inputStream, requestModel.getConfig().getMaxDownloadSize(), handler);
+                    streamToHandler(
+                            inputStream, requestModel.getConfig().getMaxDownloadSize(), handler);
                 }
             } finally {
                 if (inputStream != null) {
@@ -1983,7 +1895,9 @@ public class JCurl {
             return response;
         }
 
-        private void streamToHandler(InputStream inputStream, long maxDownloadSize, StreamHandler handler) throws IOException {
+        private void streamToHandler(
+                InputStream inputStream, long maxDownloadSize, StreamHandler handler)
+                throws IOException {
             byte[] buffer = new byte[8192];
             int bytesRead;
             long totalBytesRead = 0;
@@ -1991,7 +1905,10 @@ public class JCurl {
             while ((bytesRead = inputStream.read(buffer)) != -1) {
                 totalBytesRead += bytesRead;
                 if (maxDownloadSize > 0 && totalBytesRead > maxDownloadSize) {
-                    throw new IOException("response body size more than max-download-size limit: " + maxDownloadSize + " bytes");
+                    throw new IOException(
+                            "response body size more than max-download-size limit: "
+                                    + maxDownloadSize
+                                    + " bytes");
                 }
                 byte[] chunk = new byte[bytesRead];
                 System.arraycopy(buffer, 0, chunk, 0, bytesRead);
@@ -1999,7 +1916,8 @@ public class JCurl {
             }
         }
 
-        private JCurl.HttpResponseModel doExecute(JCurl.HttpRequestModel requestModel) throws IOException {
+        private JCurl.HttpResponseModel doExecute(JCurl.HttpRequestModel requestModel)
+                throws IOException {
             HttpURLConnection connection = null;
 
             try {
@@ -2016,7 +1934,8 @@ public class JCurl {
             }
         }
 
-        private HttpURLConnection createConnection(JCurl.HttpRequestModel requestModel) throws IOException {
+        private HttpURLConnection createConnection(JCurl.HttpRequestModel requestModel)
+                throws IOException {
             URL url = new URL(requestModel.getFullUrl());
 
             JCurl.HttpRequestModel.RequestConfig config = requestModel.getConfig();
@@ -2048,16 +1967,16 @@ public class JCurl {
                     return null;
                 }
 
-                InetSocketAddress proxyAddr = new InetSocketAddress(
-                        config.getProxyHost(),
-                        config.getProxyPort()
-                );
+                InetSocketAddress proxyAddr =
+                        new InetSocketAddress(config.getProxyHost(), config.getProxyPort());
 
                 return new Proxy(config.getProxyType(), proxyAddr);
             }
         }
 
-        private void configureConnection(HttpURLConnection connection, JCurl.HttpRequestModel requestModel) throws IOException {
+        private void configureConnection(
+                HttpURLConnection connection, JCurl.HttpRequestModel requestModel)
+                throws IOException {
             JCurl.HttpRequestModel.RequestConfig config = requestModel.getConfig();
 
             // 设置请求方法
@@ -2071,19 +1990,26 @@ public class JCurl {
             connection.setInstanceFollowRedirects(config.isFollowRedirects());
 
             // 如果有请求体，需要设置 doOutput
-            boolean hasBody = requestModel.getBody() != null
-                    || requestModel.getBinaryBody() != null
-                    || requestModel.getFormFields() != null;
+            boolean hasBody =
+                    requestModel.getBody() != null
+                            || requestModel.getBinaryBody() != null
+                            || requestModel.getFormFields() != null;
             connection.setDoOutput(hasBody);
             connection.setDoInput(true);
 
             // 设置代理认证
             if (config.getProxyUsername() != null && !config.getProxyUsername().isEmpty()) {
-                String proxyAuth = config.getProxyUsername() + ":" +
-                        (config.getProxyPassword() != null ? config.getProxyPassword() : "");
-                String encodedProxyAuth = Base64.getEncoder()
-                        .encodeToString(proxyAuth.getBytes(StandardCharsets.UTF_8));
-                connection.setRequestProperty(Constants.PROXY_AUTHORIZATION, Constants.BASIC_SPACE + encodedProxyAuth);
+                String proxyAuth =
+                        config.getProxyUsername()
+                                + ":"
+                                + (config.getProxyPassword() != null
+                                        ? config.getProxyPassword()
+                                        : "");
+                String encodedProxyAuth =
+                        Base64.getEncoder()
+                                .encodeToString(proxyAuth.getBytes(StandardCharsets.UTF_8));
+                connection.setRequestProperty(
+                        Constants.PROXY_AUTHORIZATION, Constants.BASIC_SPACE + encodedProxyAuth);
             }
         }
 
@@ -2097,11 +2023,16 @@ public class JCurl {
 
             // 设置 Basic 认证
             if (requestModel.getUsername() != null) {
-                String auth = requestModel.getUsername() + ":" +
-                        (requestModel.getPassword() != null ? requestModel.getPassword() : "");
-                String encodedAuth = Base64.getEncoder()
-                        .encodeToString(auth.getBytes(StandardCharsets.UTF_8));
-                connection.setRequestProperty(Constants.AUTHORIZATION, Constants.BASIC_SPACE + encodedAuth);
+                String auth =
+                        requestModel.getUsername()
+                                + ":"
+                                + (requestModel.getPassword() != null
+                                        ? requestModel.getPassword()
+                                        : "");
+                String encodedAuth =
+                        Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
+                connection.setRequestProperty(
+                        Constants.AUTHORIZATION, Constants.BASIC_SPACE + encodedAuth);
             }
 
             // 设置 Cookies
@@ -2117,7 +2048,8 @@ public class JCurl {
             }
         }
 
-        private void sendRequestBody(HttpURLConnection connection, JCurl.HttpRequestModel requestModel)
+        private void sendRequestBody(
+                HttpURLConnection connection, JCurl.HttpRequestModel requestModel)
                 throws IOException {
 
             // 处理表单数据
@@ -2145,15 +2077,21 @@ public class JCurl {
             }
         }
 
-        private void sendMultipartFormData(HttpURLConnection connection, JCurl.HttpRequestModel requestModel)
+        private void sendMultipartFormData(
+                HttpURLConnection connection, JCurl.HttpRequestModel requestModel)
                 throws IOException {
             String boundary = BOUNDARY_PREFIX + System.currentTimeMillis();
-            connection.setRequestProperty(Constants.CONTENT_TYPE, Constants.MULTIPART_FORM_DATA_VALUE + "; boundary=" + boundary);
+            connection.setRequestProperty(
+                    Constants.CONTENT_TYPE,
+                    Constants.MULTIPART_FORM_DATA_VALUE + "; boundary=" + boundary);
 
             try (OutputStream os = connection.getOutputStream();
-                 PrintWriter writer = new PrintWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8), true)) {
+                    PrintWriter writer =
+                            new PrintWriter(
+                                    new OutputStreamWriter(os, StandardCharsets.UTF_8), true)) {
 
-                for (Map.Entry<String, JCurl.HttpRequestModel.FormField> entry : requestModel.getAllFormFields()) {
+                for (Map.Entry<String, JCurl.HttpRequestModel.FormField> entry :
+                        requestModel.getAllFormFields()) {
                     String fieldName = entry.getKey();
                     JCurl.HttpRequestModel.FormField field = entry.getValue();
 
@@ -2170,21 +2108,37 @@ public class JCurl {
             }
         }
 
-        private void writeTextPart(PrintWriter writer, String boundary, String fieldName, String value) {
+        private void writeTextPart(
+                PrintWriter writer, String boundary, String fieldName, String value) {
             writer.append("--").append(boundary).append(CRLF);
-            writer.append(Constants.CONTENT_DISPOSITION).append(Constants.COLON_SPACE).append(Constants.FORM_DATA_VALUE)
-                    .append("; name=\"").append(fieldName).append("\"").append(CRLF);
+            writer.append(Constants.CONTENT_DISPOSITION)
+                    .append(Constants.COLON_SPACE)
+                    .append(Constants.FORM_DATA_VALUE)
+                    .append("; name=\"")
+                    .append(fieldName)
+                    .append("\"")
+                    .append(CRLF);
             writer.append(CRLF);
             writer.append(value).append(CRLF);
             writer.flush();
         }
 
-        private void writeFilePart(PrintWriter writer, OutputStream os, String boundary,
-                                   String fieldName, JCurl.HttpRequestModel.FormField field) throws IOException {
+        private void writeFilePart(
+                PrintWriter writer,
+                OutputStream os,
+                String boundary,
+                String fieldName,
+                JCurl.HttpRequestModel.FormField field)
+                throws IOException {
             writer.append("--").append(boundary).append(CRLF);
-            writer.append(Constants.CONTENT_DISPOSITION).append(Constants.COLON_SPACE).append(Constants.FORM_DATA_VALUE)
-                    .append("; name=\"").append(fieldName)
-                    .append("\"; filename=\"").append(field.getFileName()).append("\"")
+            writer.append(Constants.CONTENT_DISPOSITION)
+                    .append(Constants.COLON_SPACE)
+                    .append(Constants.FORM_DATA_VALUE)
+                    .append("; name=\"")
+                    .append(fieldName)
+                    .append("\"; filename=\"")
+                    .append(field.getFileName())
+                    .append("\"")
                     .append(CRLF);
 
             String contentType = field.getContentType();
@@ -2194,8 +2148,14 @@ public class JCurl {
                     contentType = Constants.APPLICATION_OCTET_STREAM_VALUE;
                 }
             }
-            writer.append(Constants.CONTENT_TYPE).append(Constants.COLON_SPACE).append(contentType).append(CRLF);
-            writer.append(Constants.CONTENT_TRANSFER_ENCODING).append(Constants.COLON_SPACE).append(Constants.BINARY_VALUE).append(CRLF);
+            writer.append(Constants.CONTENT_TYPE)
+                    .append(Constants.COLON_SPACE)
+                    .append(contentType)
+                    .append(CRLF);
+            writer.append(Constants.CONTENT_TRANSFER_ENCODING)
+                    .append(Constants.COLON_SPACE)
+                    .append(Constants.BINARY_VALUE)
+                    .append(CRLF);
             writer.append(CRLF);
             writer.flush();
 
@@ -2213,8 +2173,9 @@ public class JCurl {
             os.flush();
         }
 
-        private JCurl.HttpResponseModel getResponse(HttpURLConnection connection,
-                                                    JCurl.HttpRequestModel requestModel) throws IOException {
+        private JCurl.HttpResponseModel getResponse(
+                HttpURLConnection connection, JCurl.HttpRequestModel requestModel)
+                throws IOException {
             JCurl.HttpResponseModel response = new JCurl.HttpResponseModel();
 
             // 获取状态码
@@ -2224,7 +2185,9 @@ public class JCurl {
             // 获取响应头
             Map<String, List<String>> headerFields = connection.getHeaderFields();
             for (Map.Entry<String, List<String>> entry : headerFields.entrySet()) {
-                if (entry.getKey() != null && entry.getValue() != null && !entry.getValue().isEmpty()) {
+                if (entry.getKey() != null
+                        && entry.getValue() != null
+                        && !entry.getValue().isEmpty()) {
                     // 添加所有值
                     for (String value : entry.getValue()) {
                         response.addHeader(entry.getKey(), value);
@@ -2247,7 +2210,9 @@ public class JCurl {
                         inputStream = new GZIPInputStream(inputStream);
                     }
                     // 读取响应体（考虑最大下载大小限制）
-                    byte[] bodyBytes = readInputStream(inputStream, requestModel.getConfig().getMaxDownloadSize());
+                    byte[] bodyBytes =
+                            readInputStream(
+                                    inputStream, requestModel.getConfig().getMaxDownloadSize());
                     response.setBodyBytes(bodyBytes);
                 }
             } catch (IOException e) {
@@ -2265,7 +2230,8 @@ public class JCurl {
             return response;
         }
 
-        private byte[] readInputStream(InputStream inputStream, long maxDownloadSize) throws IOException {
+        private byte[] readInputStream(InputStream inputStream, long maxDownloadSize)
+                throws IOException {
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             byte[] data = new byte[8192];
             int bytesRead;
@@ -2276,7 +2242,10 @@ public class JCurl {
 
                 // 检查最大下载大小限制
                 if (maxDownloadSize > 0 && totalBytesRead > maxDownloadSize) {
-                    throw new IOException("response body size more than max-download-size limit:  " + maxDownloadSize + " bytes");
+                    throw new IOException(
+                            "response body size more than max-download-size limit:  "
+                                    + maxDownloadSize
+                                    + " bytes");
                 }
 
                 buffer.write(data, 0, bytesRead);
@@ -2287,33 +2256,35 @@ public class JCurl {
 
         private void installTrustAllCerts(HttpsURLConnection connection) {
             try {
-                TrustManager[] trustAllCerts = new TrustManager[]{
-                        new X509TrustManager() {
-                            @Override
-                            public X509Certificate[] getAcceptedIssuers() {
-                                return null;
-                            }
+                TrustManager[] trustAllCerts =
+                        new TrustManager[] {
+                            new X509TrustManager() {
+                                @Override
+                                public X509Certificate[] getAcceptedIssuers() {
+                                    return null;
+                                }
 
-                            @Override
-                            public void checkClientTrusted(X509Certificate[] certs, String authType) {
-                            }
+                                @Override
+                                public void checkClientTrusted(
+                                        X509Certificate[] certs, String authType) {}
 
-                            @Override
-                            public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                                @Override
+                                public void checkServerTrusted(
+                                        X509Certificate[] certs, String authType) {}
                             }
-                        }
-                };
+                        };
 
                 SSLContext sslContext = SSLContext.getInstance("TLS");
                 sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
 
                 connection.setSSLSocketFactory(sslContext.getSocketFactory());
-                connection.setHostnameVerifier(new HostnameVerifier() {
-                    @Override
-                    public boolean verify(String hostname, SSLSession session) {
-                        return true;
-                    }
-                });
+                connection.setHostnameVerifier(
+                        new HostnameVerifier() {
+                            @Override
+                            public boolean verify(String hostname, SSLSession session) {
+                                return true;
+                            }
+                        });
             } catch (NoSuchAlgorithmException | KeyManagementException e) {
                 throw new RuntimeException("config SSL failed.", e);
             }

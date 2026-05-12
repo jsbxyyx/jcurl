@@ -7,9 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-/**
- * 使用 httpbin.org 进行文件上传测试
- */
+/** 使用 httpbin.org 进行文件上传测试 */
 public class FileUploadTest {
 
     private static final String HTTPBIN_POST = "https://httpbin.org/post";
@@ -68,9 +66,7 @@ public class FileUploadTest {
         }
     }
 
-    /**
-     * 准备测试文件
-     */
+    /** 准备测试文件 */
     private static void setupTestFiles() throws IOException {
         System.out.println("创建测试文件.. .");
 
@@ -80,7 +76,8 @@ public class FileUploadTest {
         System.out.println("  ✓ test.txt (文本文件)");
 
         // 2. JSON 文件
-        String jsonContent = "{\n  \"name\": \"JCurl\",\n  \"version\": \"1.0\",\n  \"author\": \"测试\"\n}";
+        String jsonContent =
+                "{\n  \"name\": \"JCurl\",\n  \"version\": \"1.0\",\n  \"author\": \"测试\"\n}";
         Files.write(Paths.get("data.json"), jsonContent.getBytes(StandardCharsets.UTF_8));
         System.out.println("  ✓ data.json (JSON 文件)");
 
@@ -127,19 +124,14 @@ public class FileUploadTest {
         System.out.println("\n所有测试文件创建完成！");
     }
 
-    /**
-     * 测试 1: 单个文本文件上传
-     */
+    /** 测试 1: 单个文本文件上传 */
     private static void test1_SingleTextFileUpload() {
         System.out.println("【测试 1】单个文本文件上传");
         System.out.println("----------------------------------------");
 
         try {
-            JCurl.HttpResponseModel response = JCurl.create()
-                    .url(HTTPBIN_POST)
-                    .post()
-                    .formFile("file", "test.txt")
-                    .exec();
+            JCurl.HttpResponseModel response =
+                    JCurl.create().url(HTTPBIN_POST).post().formFile("file", "test.txt").exec();
 
             boolean success = validateResponse(response, "Hello, World!");
 
@@ -150,19 +142,18 @@ public class FileUploadTest {
         }
     }
 
-    /**
-     * 测试 2: 单个二进制文件上传
-     */
+    /** 测试 2: 单个二进制文件上传 */
     private static void test2_SingleBinaryFileUpload() {
         System.out.println("\n【测试 2】单个二进制文件上传");
         System.out.println("----------------------------------------");
 
         try {
-            JCurl.HttpResponseModel response = JCurl.create()
-                    .url(HTTPBIN_POST)
-                    .post()
-                    .formFile("binaryFile", "binary.dat")
-                    .exec();
+            JCurl.HttpResponseModel response =
+                    JCurl.create()
+                            .url(HTTPBIN_POST)
+                            .post()
+                            .formFile("binaryFile", "binary.dat")
+                            .exec();
 
             boolean success = validateResponse(response, "binaryFile");
 
@@ -173,24 +164,22 @@ public class FileUploadTest {
         }
     }
 
-    /**
-     * 测试 3: 多个文件上传
-     */
+    /** 测试 3: 多个文件上传 */
     private static void test3_MultipleFilesUpload() {
         System.out.println("\n【测试 3】多个文件上传");
         System.out.println("----------------------------------------");
 
         try {
-            JCurl.HttpResponseModel response = JCurl.create()
-                    .url(HTTPBIN_POST)
-                    .post()
-                    .formFile("textFile", "test.txt")
-                    .formFile("jsonFile", "data.json")
-                    .formFile("imageFile", "image.png")
-                    .exec();
+            JCurl.HttpResponseModel response =
+                    JCurl.create()
+                            .url(HTTPBIN_POST)
+                            .post()
+                            .formFile("textFile", "test.txt")
+                            .formFile("jsonFile", "data.json")
+                            .formFile("imageFile", "image.png")
+                            .exec();
 
-            boolean success = validateResponse(response,
-                    "imageFile", "jsonFile", "imageFile");
+            boolean success = validateResponse(response, "imageFile", "jsonFile", "imageFile");
 
             printResult("多个文件上传", success, response);
 
@@ -199,28 +188,26 @@ public class FileUploadTest {
         }
     }
 
-    /**
-     * 测试 4: 文件 + 文本字段混合
-     */
+    /** 测试 4: 文件 + 文本字段混合 */
     private static void test4_MixedFormData() {
         System.out.println("\n【测试 4】文件 + 文本字段混合");
         System.out.println("----------------------------------------");
 
         try {
-            JCurl.HttpResponseModel response = JCurl.create()
-                    .url(HTTPBIN_POST)
-                    .post()
-                    .formField("username", "张三")
-                    .formField("email", "zhangsan@example.com")
-                    .formField("age", "25")
-                    .formField("description", "这是一个测试用户")
-                    .formFile("avatar", "image.png")
-                    .formFile("document", "data.json")
-                    .exec();
+            JCurl.HttpResponseModel response =
+                    JCurl.create()
+                            .url(HTTPBIN_POST)
+                            .post()
+                            .formField("username", "张三")
+                            .formField("email", "zhangsan@example.com")
+                            .formField("age", "25")
+                            .formField("description", "这是一个测试用户")
+                            .formFile("avatar", "image.png")
+                            .formFile("document", "data.json")
+                            .exec();
 
-            boolean success = validateResponse(response,
-                    "username", "email", "age",
-                    "avatar", "document");
+            boolean success =
+                    validateResponse(response, "username", "email", "age", "avatar", "document");
 
             printResult("文件 + 文本字段混合", success, response);
 
@@ -229,24 +216,22 @@ public class FileUploadTest {
         }
     }
 
-    /**
-     * 测试 5: 自定义文件名和 Content-Type
-     */
+    /** 测试 5: 自定义文件名和 Content-Type */
     private static void test5_CustomFileMetadata() {
         System.out.println("\n【测试 5】自定义文件名和 Content-Type");
         System.out.println("----------------------------------------");
 
         try {
-            JCurl.HttpResponseModel response = JCurl.create()
-                    .url(HTTPBIN_POST)
-                    .post()
-                    .formFile("upload1", "image.png", "custom-avatar.png", "image/png")
-                    .formFile("upload2", "data.json", "config.json", "application/json")
-                    .formFile("upload3", "test.txt", "readme.txt", "text/plain")
-                    .exec();
+            JCurl.HttpResponseModel response =
+                    JCurl.create()
+                            .url(HTTPBIN_POST)
+                            .post()
+                            .formFile("upload1", "image.png", "custom-avatar.png", "image/png")
+                            .formFile("upload2", "data.json", "config.json", "application/json")
+                            .formFile("upload3", "test.txt", "readme.txt", "text/plain")
+                            .exec();
 
-            boolean success = validateResponse(response,
-                    "upload1", "upload2", "upload3");
+            boolean success = validateResponse(response, "upload1", "upload2", "upload3");
 
             printResult("自定义文件名和 Content-Type", success, response);
 
@@ -255,31 +240,33 @@ public class FileUploadTest {
         }
     }
 
-    /**
-     * 测试 6: 使用 curl 命令风格
-     */
+    /** 测试 6: 使用 curl 命令风格 */
     private static void test6_CurlStyleUpload() {
         System.out.println("\n【测试 6】使用 curl 命令风格");
         System.out.println("----------------------------------------");
 
         try {
             // 方式 1: 使用 opt() 方法
-            JCurl.HttpResponseModel response1 = JCurl.create()
-                    .url(HTTPBIN_POST)
-                    .opt("-X", "POST")
-                    .opt("-F", "name=测试用户")
-                    .opt("-F", "file=@test.txt")
-                    .opt("-F", "image=@image.png")
-                    .exec();
+            JCurl.HttpResponseModel response1 =
+                    JCurl.create()
+                            .url(HTTPBIN_POST)
+                            .opt("-X", "POST")
+                            .opt("-F", "name=测试用户")
+                            .opt("-F", "file=@test.txt")
+                            .opt("-F", "image=@image.png")
+                            .exec();
 
             boolean success1 = validateResponse(response1, "name", "file", "image");
             System.out.println("  方式1 (opt方法): " + (success1 ? "✓" : "✗"));
 
             // 方式 2: 从 curl 命令字符串解析
-            String curlCommand = "curl -X POST " + HTTPBIN_POST + " " +
-                    "-F 'username=John' " +
-                    "-F 'email=john@example.com' " +
-                    "-F 'avatar=@image.png'";
+            String curlCommand =
+                    "curl -X POST "
+                            + HTTPBIN_POST
+                            + " "
+                            + "-F 'username=John' "
+                            + "-F 'email=john@example.com' "
+                            + "-F 'avatar=@image.png'";
 
             JCurl.HttpResponseModel response2 = JCurl.fromCurl(curlCommand).exec();
 
@@ -293,9 +280,7 @@ public class FileUploadTest {
         }
     }
 
-    /**
-     * 测试 7: 大文件上传
-     */
+    /** 测试 7: 大文件上传 */
     private static void test7_LargeFileUpload() {
         System.out.println("\n【测试 7】大文件上传");
         System.out.println("----------------------------------------");
@@ -303,14 +288,15 @@ public class FileUploadTest {
         try {
             long startTime = System.currentTimeMillis();
 
-            JCurl.HttpResponseModel response = JCurl.create()
-                    .url(HTTPBIN_POST)
-                    .post()
-                    .formFile("largefile", "large.bin")
-                    .formField("description", "这是一个大文件测试")
-                    .connectTimeout(30000)
-                    .readTimeout(30000)
-                    .exec();
+            JCurl.HttpResponseModel response =
+                    JCurl.create()
+                            .url(HTTPBIN_POST)
+                            .post()
+                            .formFile("largefile", "large.bin")
+                            .formField("description", "这是一个大文件测试")
+                            .connectTimeout(30000)
+                            .readTimeout(30000)
+                            .exec();
 
             long endTime = System.currentTimeMillis();
             long duration = endTime - startTime;
@@ -326,20 +312,19 @@ public class FileUploadTest {
         }
     }
 
-    /**
-     * 测试 8: 空文件上传
-     */
+    /** 测试 8: 空文件上传 */
     private static void test8_EmptyFileUpload() {
         System.out.println("\n【测试 8】空文件上传");
         System.out.println("----------------------------------------");
 
         try {
-            JCurl.HttpResponseModel response = JCurl.create()
-                    .url(HTTPBIN_POST)
-                    .post()
-                    .formFile("emptyfile", "empty.txt")
-                    .formField("note", "这是一个空文件")
-                    .exec();
+            JCurl.HttpResponseModel response =
+                    JCurl.create()
+                            .url(HTTPBIN_POST)
+                            .post()
+                            .formFile("emptyfile", "empty.txt")
+                            .formField("note", "这是一个空文件")
+                            .exec();
 
             boolean success = validateResponse(response, "emptyfile", "note");
 
@@ -350,19 +335,14 @@ public class FileUploadTest {
         }
     }
 
-    /**
-     * 测试 9: 特殊字符文件名
-     */
+    /** 测试 9: 特殊字符文件名 */
     private static void test9_SpecialCharacterFilename() {
         System.out.println("\n【测试 9】特殊字符文件名");
         System.out.println("----------------------------------------");
 
         try {
-            JCurl.HttpResponseModel response = JCurl.create()
-                    .url(HTTPBIN_POST)
-                    .post()
-                    .formFile("file", "特殊文件名-测试.txt")
-                    .exec();
+            JCurl.HttpResponseModel response =
+                    JCurl.create().url(HTTPBIN_POST).post().formFile("file", "特殊文件名-测试.txt").exec();
 
             boolean success = response.getStatusCode() == 200;
 
@@ -373,23 +353,22 @@ public class FileUploadTest {
         }
     }
 
-    /**
-     * 测试 10: 多个同名字段
-     */
+    /** 测试 10: 多个同名字段 */
     private static void test10_MultipleFieldsWithSameName() {
         System.out.println("\n【测试 10】多个同名字段");
         System.out.println("----------------------------------------");
 
         try {
-            JCurl.HttpResponseModel response = JCurl.create()
-                    .url(HTTPBIN_POST)
-                    .post()
-                    .formField("tags", "java")
-                    .formField("tags", "http")
-                    .formField("tags", "upload")
-                    .formFile("files", "test.txt")
-                    .formFile("files", "data.json")
-                    .exec();
+            JCurl.HttpResponseModel response =
+                    JCurl.create()
+                            .url(HTTPBIN_POST)
+                            .post()
+                            .formField("tags", "java")
+                            .formField("tags", "http")
+                            .formField("tags", "upload")
+                            .formFile("files", "test.txt")
+                            .formFile("files", "data.json")
+                            .exec();
 
             boolean success = validateResponse(response, "java", "http", "upload", "files");
 
@@ -400,10 +379,9 @@ public class FileUploadTest {
         }
     }
 
-    /**
-     * 验证响应
-     */
-    private static boolean validateResponse(JCurl.HttpResponseModel response, String... expectedContents) {
+    /** 验证响应 */
+    private static boolean validateResponse(
+            JCurl.HttpResponseModel response, String... expectedContents) {
         if (response.getStatusCode() != 200) {
             return false;
         }
@@ -424,10 +402,9 @@ public class FileUploadTest {
         return true;
     }
 
-    /**
-     * 打印测试结果
-     */
-    private static void printResult(String testName, boolean success, JCurl.HttpResponseModel response) {
+    /** 打印测试结果 */
+    private static void printResult(
+            String testName, boolean success, JCurl.HttpResponseModel response) {
         if (success) {
             testsPassed++;
             System.out.println("\n✓ " + testName + " - 通过");
@@ -444,29 +421,25 @@ public class FileUploadTest {
         }
     }
 
-    /**
-     * 打印错误信息
-     */
+    /** 打印错误信息 */
     private static void printError(String testName, Exception e) {
         testsFailed++;
         System.out.println("\n✗ " + testName + " - 异常");
         System.out.println("  错误: " + e.getMessage());
     }
 
-    /**
-     * 清理测试文件
-     */
+    /** 清理测试文件 */
     private static void cleanupTestFiles() {
         System.out.println("清理测试文件...");
 
         String[] files = {
-                "test.txt",
-                "data.json",
-                "image.png",
-                "binary.dat",
-                "large.bin",
-                "empty.txt",
-                "特殊文件名-测试.txt"
+            "test.txt",
+            "data.json",
+            "image.png",
+            "binary.dat",
+            "large.bin",
+            "empty.txt",
+            "特殊文件名-测试.txt"
         };
 
         int deleted = 0;

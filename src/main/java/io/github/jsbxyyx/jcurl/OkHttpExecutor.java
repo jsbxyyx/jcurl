@@ -11,6 +11,7 @@ import okhttp3.Response;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -37,10 +38,7 @@ import static io.github.jsbxyyx.jcurl.JCurl.Constants.DEFLATE_VALUE;
 import static io.github.jsbxyyx.jcurl.JCurl.Constants.GZIP_VALUE;
 import static io.github.jsbxyyx.jcurl.JCurl.Constants.PROXY_AUTHORIZATION;
 
-/**
- * OkHttp实现的HTTP请求执行器
- * 需要依赖: com.squareup.okhttp3:okhttp:4.x
- */
+/** OkHttp实现的HTTP请求执行器 需要依赖: com.squareup.okhttp3:okhttp:4.x */
 public class OkHttpExecutor implements JCurl.HttpExecutor {
 
     private static final OkHttpExecutor DEFAULT = new OkHttpExecutor(null);
@@ -73,7 +71,8 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
     }
 
     @Override
-    public JCurl.HttpResponseModel executeStream(JCurl.HttpRequestModel requestModel, JCurl.StreamHandler handler) throws IOException {
+    public JCurl.HttpResponseModel executeStream(
+            JCurl.HttpRequestModel requestModel, JCurl.StreamHandler handler) throws IOException {
         OkHttpClient client = buildClient(requestModel);
         Request request = buildRequest(requestModel);
         int maxRetries = requestModel.getConfig().getMaxRetries();
@@ -84,7 +83,8 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
         while (attempts <= maxRetries) {
             try {
                 Response response = client.newCall(request).execute();
-                return buildResponseStream(response, requestModel.getConfig().getMaxDownloadSize(), handler);
+                return buildResponseStream(
+                        response, requestModel.getConfig().getMaxDownloadSize(), handler);
             } catch (IOException e) {
                 lastException = e;
                 attempts++;
@@ -102,7 +102,9 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
         throw new IOException("request failed，retry " + maxRetries + " times", lastException);
     }
 
-    private static JCurl.HttpResponseModel buildResponseStream(Response response, long maxDownloadSize, JCurl.StreamHandler handler) throws IOException {
+    private static JCurl.HttpResponseModel buildResponseStream(
+            Response response, long maxDownloadSize, JCurl.StreamHandler handler)
+            throws IOException {
         JCurl.HttpResponseModel result = new JCurl.HttpResponseModel();
         result.setStatusCode(response.code());
         result.setStatusMessage(response.message());
@@ -130,7 +132,10 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
                 while ((bytesRead = bodyStream.read(buffer)) != -1) {
                     totalBytesRead += bytesRead;
                     if (maxDownloadSize > 0 && totalBytesRead > maxDownloadSize) {
-                        throw new IOException("response body size more than max-download-size limit: " + maxDownloadSize + " bytes");
+                        throw new IOException(
+                                "response body size more than max-download-size limit: "
+                                        + maxDownloadSize
+                                        + " bytes");
                     }
                     byte[] chunk = new byte[bytesRead];
                     System.arraycopy(buffer, 0, chunk, 0, bytesRead);
@@ -146,9 +151,8 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
     }
 
     private OkHttpClient buildClient(JCurl.HttpRequestModel requestModel) {
-        OkHttpClient.Builder builder = baseClient != null
-                ? baseClient.newBuilder()
-                : new OkHttpClient.Builder();
+        OkHttpClient.Builder builder =
+                baseClient != null ? baseClient.newBuilder() : new OkHttpClient.Builder();
         builder.connectTimeout(requestModel.getConfig().getConnectTimeout(), TimeUnit.MILLISECONDS)
                 .readTimeout(requestModel.getConfig().getReadTimeout(), TimeUnit.MILLISECONDS)
                 .followRedirects(requestModel.getConfig().isFollowRedirects())
@@ -164,11 +168,12 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
         if (requestModel.getConfig().getProxy() == null) {
             if (requestModel.getConfig().getProxyHost() != null
                     && requestModel.getConfig().getProxyPort() > 0) {
-                Proxy proxy = new Proxy(
-                        requestModel.getConfig().getProxyType(),
-                        new InetSocketAddress(
-                                requestModel.getConfig().getProxyHost(),
-                                requestModel.getConfig().getProxyPort()));
+                Proxy proxy =
+                        new Proxy(
+                                requestModel.getConfig().getProxyType(),
+                                new InetSocketAddress(
+                                        requestModel.getConfig().getProxyHost(),
+                                        requestModel.getConfig().getProxyPort()));
                 builder.proxy(proxy);
                 isProxy = true;
             }
@@ -180,34 +185,37 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
             // HTTP代理认证
             if (requestModel.getConfig().getProxy().type() == Proxy.Type.HTTP
                     && requestModel.getConfig().getProxyUsername() != null) {
-                builder.proxyAuthenticator((route, response) -> {
-                    String credential = Credentials.basic(
-                            requestModel.getConfig().getProxyUsername(),
-                            requestModel.getConfig().getProxyPassword() != null
-                                    ? requestModel.getConfig().getProxyPassword()
-                                    : "");
-                    return response.request()
-                            .newBuilder()
-                            .header(PROXY_AUTHORIZATION, credential)
-                            .build();
-                });
+                builder.proxyAuthenticator(
+                        (route, response) -> {
+                            String credential =
+                                    Credentials.basic(
+                                            requestModel.getConfig().getProxyUsername(),
+                                            requestModel.getConfig().getProxyPassword() != null
+                                                    ? requestModel.getConfig().getProxyPassword()
+                                                    : "");
+                            return response.request()
+                                    .newBuilder()
+                                    .header(PROXY_AUTHORIZATION, credential)
+                                    .build();
+                        });
             }
             // SOCKS代理认证
             if (requestModel.getConfig().isSocksProxy()
                     && requestModel.getConfig().getProxyUsername() != null) {
-                Authenticator.setDefault(new Authenticator() {
-                    @Override
-                    protected PasswordAuthentication getPasswordAuthentication() {
-                        return new PasswordAuthentication(
-                                requestModel.getConfig().getProxyUsername(),
-                                requestModel.getConfig().getProxyPassword() == null
-                                        ? "".toCharArray()
-                                        : requestModel
-                                        .getConfig()
-                                        .getProxyPassword()
-                                        .toCharArray());
-                    }
-                });
+                Authenticator.setDefault(
+                        new Authenticator() {
+                            @Override
+                            protected PasswordAuthentication getPasswordAuthentication() {
+                                return new PasswordAuthentication(
+                                        requestModel.getConfig().getProxyUsername(),
+                                        requestModel.getConfig().getProxyPassword() == null
+                                                ? "".toCharArray()
+                                                : requestModel
+                                                        .getConfig()
+                                                        .getProxyPassword()
+                                                        .toCharArray());
+                            }
+                        });
             }
         }
 
@@ -236,9 +244,10 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
 
         // Basic认证
         if (requestModel.getUsername() != null) {
-            String credential = Credentials.basic(
-                    requestModel.getUsername(),
-                    requestModel.getPassword() != null ? requestModel.getPassword() : "");
+            String credential =
+                    Credentials.basic(
+                            requestModel.getUsername(),
+                            requestModel.getPassword() != null ? requestModel.getPassword() : "");
             builder.addHeader(AUTHORIZATION, credential);
         }
 
@@ -264,14 +273,16 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
             MultipartBody.Builder multipartBuilder =
                     new MultipartBody.Builder().setType(MultipartBody.FORM);
 
-            for (Map.Entry<String, JCurl.HttpRequestModel.FormField> entry : requestModel.getAllFormFields()) {
+            for (Map.Entry<String, JCurl.HttpRequestModel.FormField> entry :
+                    requestModel.getAllFormFields()) {
                 JCurl.HttpRequestModel.FormField field = entry.getValue();
 
                 if (field.isFile()) {
                     File file = new File(field.getFilePath());
-                    MediaType mediaType = field.getContentType() != null
-                            ? MediaType.parse(field.getContentType())
-                            : MediaType.parse(APPLICATION_OCTET_STREAM_VALUE);
+                    MediaType mediaType =
+                            field.getContentType() != null
+                                    ? MediaType.parse(field.getContentType())
+                                    : MediaType.parse(APPLICATION_OCTET_STREAM_VALUE);
                     multipartBuilder.addFormDataPart(
                             entry.getKey(),
                             field.getFileName(),
@@ -367,22 +378,23 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
 
     private static void trustAllCertificates(OkHttpClient.Builder builder) {
         try {
-            TrustManager[] trustManagers = new TrustManager[]{
-                    new X509TrustManager() {
-                        @Override
-                        public void checkClientTrusted(X509Certificate[] chain, String authType) {
-                        }
+            TrustManager[] trustManagers =
+                    new TrustManager[] {
+                        new X509TrustManager() {
+                            @Override
+                            public void checkClientTrusted(
+                                    X509Certificate[] chain, String authType) {}
 
-                        @Override
-                        public void checkServerTrusted(X509Certificate[] chain, String authType) {
-                        }
+                            @Override
+                            public void checkServerTrusted(
+                                    X509Certificate[] chain, String authType) {}
 
-                        @Override
-                        public X509Certificate[] getAcceptedIssuers() {
-                            return new X509Certificate[0];
+                            @Override
+                            public X509Certificate[] getAcceptedIssuers() {
+                                return new X509Certificate[0];
+                            }
                         }
-                    }
-            };
+                    };
 
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(null, trustManagers, new java.security.SecureRandom());
@@ -395,13 +407,11 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
         }
     }
 
-    /**
-     * 解压gzip数据
-     */
+    /** 解压gzip数据 */
     private static byte[] decompressGzip(byte[] compressed) throws IOException {
         try (ByteArrayInputStream bis = new ByteArrayInputStream(compressed);
-             GZIPInputStream gzipStream = new GZIPInputStream(bis);
-             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+                GZIPInputStream gzipStream = new GZIPInputStream(bis);
+                ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
 
             byte[] buffer = new byte[8192];
             int len;
@@ -412,13 +422,11 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
         }
     }
 
-    /**
-     * 解压deflate数据
-     */
+    /** 解压deflate数据 */
     private static byte[] decompressDeflate(byte[] compressed) throws IOException {
         try (ByteArrayInputStream bis = new ByteArrayInputStream(compressed);
-             InflaterInputStream inflaterStream = new InflaterInputStream(bis);
-             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+                InflaterInputStream inflaterStream = new InflaterInputStream(bis);
+                ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
 
             byte[] buffer = new byte[8192];
             int len;
