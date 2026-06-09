@@ -8,6 +8,8 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
@@ -21,6 +23,10 @@ import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
 import java.net.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Map;
@@ -158,9 +164,11 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
                 .followRedirects(requestModel.getConfig().isFollowRedirects())
                 .followSslRedirects(requestModel.getConfig().isFollowRedirects());
 
-        // SSL验证
-        if (!requestModel.getConfig().isVerifySSL()) {
-            trustAllCertificates(builder);
+        // SSL验证和客户端证书配置
+        if (!requestModel.getConfig().isVerifySSL()
+                || requestModel.getConfig().getCertPath() != null
+                || requestModel.getConfig().getCertBytes() != null) {
+            configureSSL(builder, requestModel.getConfig());
         }
 
         // 代理设置
@@ -376,35 +384,103 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
         return result;
     }
 
-    private static void trustAllCertificates(OkHttpClient.Builder builder) {
+    private static void configureSSL(
+            OkHttpClient.Builder builder, JCurl.HttpRequestModel.RequestConfig config) {
         try {
-            TrustManager[] trustManagers =
-                    new TrustManager[] {
-                        new X509TrustManager() {
-                            @Override
-                            public void checkClientTrusted(
-                                    X509Certificate[] chain, String authType) {}
+            TrustManager[] trustManagers = null;
+            KeyManager[] keyManagers = null;
 
-                            @Override
-                            public void checkServerTrusted(
-                                    X509Certificate[] chain, String authType) {}
+            // 配置信任管理器（如果不验证SSL）
+            if (!config.isVerifySSL()) {
+                trustManagers =
+                        new TrustManager[] {
+                            new X509TrustManager() {
+                                @Override
+                                public void checkClientTrusted(
+                                        X509Certificate[] chain, String authType) {}
 
-                            @Override
-                            public X509Certificate[] getAcceptedIssuers() {
-                                return new X509Certificate[0];
+                                @Override
+                                public void checkServerTrusted(
+                                        X509Certificate[] chain, String authType) {}
+
+                                @Override
+                                public X509Certificate[] getAcceptedIssuers() {
+                                    return new X509Certificate[0];
+                                }
                             }
-                        }
-                    };
+                        };
+            }
 
+            // 配置客户端证书
+            if (config.getCertPath() != null || config.getCertBytes() != null) {
+                keyManagers = loadClientCertificate(config);
+            }
+
+            // 初始化SSL上下文
             SSLContext sslContext = SSLContext.getInstance("TLS");
-            sslContext.init(null, trustManagers, new java.security.SecureRandom());
+            sslContext.init(keyManagers, trustManagers, new SecureRandom());
 
-            builder.sslSocketFactory(
-                    sslContext.getSocketFactory(), (X509TrustManager) trustManagers[0]);
-            builder.hostnameVerifier((hostname, session) -> true);
+            if (trustManagers != null) {
+                builder.sslSocketFactory(
+                        sslContext.getSocketFactory(), (X509TrustManager) trustManagers[0]);
+                builder.hostnameVerifier((hostname, session) -> true);
+            } else {
+                builder.sslSocketFactory(sslContext.getSocketFactory(), getDefaultTrustManager());
+            }
         } catch (Exception e) {
             throw new RuntimeException("config SSL failed.", e);
         }
+    }
+
+    private static KeyManager[] loadClientCertificate(JCurl.HttpRequestModel.RequestConfig config)
+            throws Exception {
+        String certType = config.getCertType();
+        if (certType == null || certType.isEmpty()) {
+            certType = JCurl.CertType.P12.getKeystoreType();
+        }
+
+        KeyStore keyStore = KeyStore.getInstance(certType);
+        char[] password =
+                config.getCertPassword() != null
+                        ? config.getCertPassword().toCharArray()
+                        : new char[0];
+
+        // 从字节数组或文件加载证书
+        if (config.getCertBytes() != null) {
+            try (ByteArrayInputStream bis = new ByteArrayInputStream(config.getCertBytes())) {
+                keyStore.load(bis, password);
+            }
+        } else if (config.getCertPath() != null) {
+            try (InputStream fis = Files.newInputStream(Paths.get(config.getCertPath()))) {
+                keyStore.load(fis, password);
+            }
+        } else {
+            throw new IllegalArgumentException("cert path or cert bytes must be provided");
+        }
+
+        KeyManagerFactory kmf =
+                KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        kmf.init(keyStore, password);
+        return kmf.getKeyManagers();
+    }
+
+    private static X509TrustManager getDefaultTrustManager() throws Exception {
+        TrustManager[] trustManagers =
+                new TrustManager[] {
+                    new X509TrustManager() {
+                        @Override
+                        public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+
+                        @Override
+                        public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+
+                        @Override
+                        public X509Certificate[] getAcceptedIssuers() {
+                            return new X509Certificate[0];
+                        }
+                    }
+                };
+        return (X509TrustManager) trustManagers[0];
     }
 
     /** 解压gzip数据 */

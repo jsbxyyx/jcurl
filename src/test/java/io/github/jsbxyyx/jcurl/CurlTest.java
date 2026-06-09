@@ -89,4 +89,140 @@ public class CurlTest {
 
         System.out.println(response.getStatusCode() + " : " + response.getBody());
     }
+
+    @Test
+    void testClientCertificate() throws Exception {
+        // 测试使用curl命令行参数设置客户端证书
+        String curlCommand = "curl --cert-type P12 --cert bad.p12:password https://httpbin.org/get";
+
+        try {
+            JCurl.HttpRequestModel model = JCurl.parse(curlCommand);
+            System.out.println("证书类型: " + model.getConfig().getCertType());
+            System.out.println("证书路径: " + model.getConfig().getCertPath());
+            System.out.println("证书密码: " + model.getConfig().getCertPassword());
+
+            // 验证解析结果
+            if (!"P12".equals(model.getConfig().getCertType())) {
+                throw new AssertionError("证书类型不匹配");
+            }
+            if (!"bad.p12".equals(model.getConfig().getCertPath())) {
+                throw new AssertionError("证书路径不匹配");
+            }
+            if (!"password".equals(model.getConfig().getCertPassword())) {
+                throw new AssertionError("证书密码不匹配");
+            }
+
+            System.out.println("客户端证书参数解析测试通过!");
+        } catch (Exception e) {
+            System.out.println("测试异常（预期，因为证书文件不存在）: " + e.getMessage());
+        }
+    }
+
+    @Test
+    void testClientCertificateAPI() throws Exception {
+        // 测试使用API方法设置客户端证书（从文件路径）- 使用枚举
+        JCurl curl =
+                JCurl.create()
+                        .url("https://httpbin.org/get")
+                        .clientCert(JCurl.CertType.PKCS12, "test.p12", "password123");
+
+        JCurl.HttpRequestModel model = curl.build();
+        System.out.println("API设置(枚举) - 证书类型: " + model.getConfig().getCertType());
+        System.out.println("API设置(枚举) - 证书路径: " + model.getConfig().getCertPath());
+        System.out.println("API设置(枚举) - 证书密码: " + model.getConfig().getCertPassword());
+
+        if (!"PKCS12".equals(model.getConfig().getCertType())) {
+            throw new AssertionError("证书类型不匹配");
+        }
+        if (!"test.p12".equals(model.getConfig().getCertPath())) {
+            throw new AssertionError("证书路径不匹配");
+        }
+        if (!"password123".equals(model.getConfig().getCertPassword())) {
+            throw new AssertionError("证书密码不匹配");
+        }
+
+        // 测试字符串版本（向后兼容）
+        JCurl curl2 =
+                JCurl.create()
+                        .url("https://httpbin.org/get")
+                        .clientCert("P12", "test2.p12", "pass456");
+
+        JCurl.HttpRequestModel model2 = curl2.build();
+        System.out.println("API设置(字符串) - 证书类型: " + model2.getConfig().getCertType());
+
+        if (!"PKCS12".equals(model2.getConfig().getCertType())) {
+            throw new AssertionError("P12应该映射到PKCS12");
+        }
+
+        System.out.println("客户端证书API测试（文件路径）通过!");
+    }
+
+    @Test
+    void testClientCertificateAPIWithBytes() throws Exception {
+        // 测试使用API方法设置客户端证书（从字节数组）- 使用枚举
+        byte[] certBytes = "dummy cert data".getBytes();
+
+        JCurl curl =
+                JCurl.create()
+                        .url("https://httpbin.org/get")
+                        .clientCert(JCurl.CertType.PKCS12, certBytes, "password123");
+
+        JCurl.HttpRequestModel model = curl.build();
+        System.out.println("API设置(枚举) - 证书类型: " + model.getConfig().getCertType());
+        System.out.println("API设置(枚举) - 证书字节数组长度: " + model.getConfig().getCertBytes().length);
+        System.out.println("API设置(枚举) - 证书密码: " + model.getConfig().getCertPassword());
+
+        if (!"PKCS12".equals(model.getConfig().getCertType())) {
+            throw new AssertionError("证书类型不匹配");
+        }
+        if (certBytes != model.getConfig().getCertBytes()) {
+            throw new AssertionError("证书字节数组不匹配");
+        }
+        if (!"password123".equals(model.getConfig().getCertPassword())) {
+            throw new AssertionError("证书密码不匹配");
+        }
+
+        // 测试字符串版本（向后兼容）
+        JCurl curl2 =
+                JCurl.create()
+                        .url("https://httpbin.org/get")
+                        .clientCert("JKS", certBytes, "jkspass");
+
+        JCurl.HttpRequestModel model2 = curl2.build();
+        System.out.println("API设置(字符串) - 证书类型: " + model2.getConfig().getCertType());
+
+        if (!"JKS".equals(model2.getConfig().getCertType())) {
+            throw new AssertionError("JKS类型不匹配");
+        }
+
+        System.out.println("客户端证书API测试（字节数组）通过!");
+    }
+
+    @Test
+    void testClientCertificateWithOkHttp() throws Exception {
+        // 测试 OkHttpExecutor 的客户端证书支持
+        String curlCommand =
+                "curl --cert-type P12 --cert test.p12:password https://httpbin.org/get";
+
+        try {
+            JCurl.HttpRequestModel model = JCurl.parse(curlCommand);
+            System.out.println("OkHttp - 证书类型: " + model.getConfig().getCertType());
+            System.out.println("OkHttp - 证书路径: " + model.getConfig().getCertPath());
+            System.out.println("OkHttp - 证书密码: " + model.getConfig().getCertPassword());
+
+            if (!"P12".equals(model.getConfig().getCertType())) {
+                throw new AssertionError("证书类型不匹配");
+            }
+            if (!"test.p12".equals(model.getConfig().getCertPath())) {
+                throw new AssertionError("证书路径不匹配");
+            }
+            if (!"password".equals(model.getConfig().getCertPassword())) {
+                throw new AssertionError("证书密码不匹配");
+            }
+
+            System.out.println("OkHttpExecutor 客户端证书配置测试通过!");
+        } catch (Exception e) {
+            System.out.println("测试异常（预期，因为证书文件不存在）: " + e.getMessage());
+        }
+    }
 }

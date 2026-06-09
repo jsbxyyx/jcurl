@@ -2,11 +2,14 @@ package io.github.jsbxyyx.jcurl;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -24,8 +27,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
+import java.security.KeyStore;
 import java.security.cert.X509Certificate;
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -39,6 +41,39 @@ import java.util.Set;
 import java.util.zip.GZIPInputStream;
 
 public class JCurl {
+
+    /** 证书类型枚举 */
+    public enum CertType {
+        PKCS12("PKCS12"),
+        P12("PKCS12"),
+        PFX("PKCS12"),
+        JKS("JKS"),
+        JCEKS("JCEKS");
+
+        private final String keystoreType;
+
+        CertType(String keystoreType) {
+            this.keystoreType = keystoreType;
+        }
+
+        public String getKeystoreType() {
+            return keystoreType;
+        }
+
+        public static CertType fromString(String type) {
+            if (type == null || type.isEmpty()) {
+                return PKCS12; // 默认
+            }
+            String upperType = type.toUpperCase();
+            for (CertType certType : values()) {
+                if (certType.name().equals(upperType)) {
+                    return certType;
+                }
+            }
+            // 如果没有匹配的枚举，尝试直接使用字符串（向后兼容）
+            return PKCS12;
+        }
+    }
 
     public static class Constants {
         public static final String ACCEPT_ENCODING = "Accept-Encoding";
@@ -370,6 +405,38 @@ public class JCurl {
         return this;
     }
 
+    /** 设置客户端证书（从文件路径） - 使用枚举 */
+    public JCurl clientCert(CertType certType, String certPath, String password) {
+        request.getConfig().setCertType(certType.getKeystoreType());
+        request.getConfig().setCertPath(certPath);
+        request.getConfig().setCertPassword(password);
+        return this;
+    }
+
+    /** 设置客户端证书（从文件路径） - 使用字符串（向后兼容） */
+    public JCurl clientCert(String certType, String certPath, String password) {
+        request.getConfig().setCertType(CertType.fromString(certType).getKeystoreType());
+        request.getConfig().setCertPath(certPath);
+        request.getConfig().setCertPassword(password);
+        return this;
+    }
+
+    /** 设置客户端证书（从字节数组） - 使用枚举 */
+    public JCurl clientCert(CertType certType, byte[] certBytes, String password) {
+        request.getConfig().setCertType(certType.getKeystoreType());
+        request.getConfig().setCertBytes(certBytes);
+        request.getConfig().setCertPassword(password);
+        return this;
+    }
+
+    /** 设置客户端证书（从字节数组） - 使用字符串（向后兼容） */
+    public JCurl clientCert(String certType, byte[] certBytes, String password) {
+        request.getConfig().setCertType(CertType.fromString(certType).getKeystoreType());
+        request.getConfig().setCertBytes(certBytes);
+        request.getConfig().setCertPassword(password);
+        return this;
+    }
+
     // ==================== curl选项风格的方法 ====================
 
     /** curl选项风格的参数设置 例如: opt("-H", "Content-Type: application/json") */
@@ -500,6 +567,14 @@ public class JCurl {
 
                 case "--url":
                     url(value);
+                    break;
+
+                case "--cert-type":
+                    request.getConfig().setCertType(value);
+                    break;
+
+                case "--cert":
+                    parseAndSetCert(value);
                     break;
 
                 default:
@@ -647,6 +722,17 @@ public class JCurl {
             proxyAuth(auth, "");
         } else {
             proxyAuth(auth.substring(0, colonIndex), auth.substring(colonIndex + 1));
+        }
+    }
+
+    private void parseAndSetCert(String cert) {
+        int colonIndex = cert.indexOf(':');
+        if (colonIndex == -1) {
+            request.getConfig().setCertPath(cert);
+            request.getConfig().setCertPassword(null);
+        } else {
+            request.getConfig().setCertPath(cert.substring(0, colonIndex));
+            request.getConfig().setCertPassword(cert.substring(colonIndex + 1));
         }
     }
 
@@ -849,6 +935,16 @@ public class JCurl {
                         i++;
                         break;
 
+                    case "--cert-type":
+                        request.getConfig().setCertType(getNextArg(args, i));
+                        i++;
+                        break;
+
+                    case "--cert":
+                        parseCert(request, getNextArg(args, i));
+                        i++;
+                        break;
+
                     default:
                         if (!arg.startsWith("-")) {
                             request.setUrl(arg);
@@ -1038,6 +1134,17 @@ public class JCurl {
         } else {
             request.getConfig().setProxyUsername(auth.substring(0, colonIndex));
             request.getConfig().setProxyPassword(auth.substring(colonIndex + 1));
+        }
+    }
+
+    private static void parseCert(HttpRequestModel request, String cert) {
+        int colonIndex = cert.indexOf(':');
+        if (colonIndex == -1) {
+            request.getConfig().setCertPath(cert);
+            request.getConfig().setCertPassword(null);
+        } else {
+            request.getConfig().setCertPath(cert.substring(0, colonIndex));
+            request.getConfig().setCertPassword(cert.substring(colonIndex + 1));
         }
     }
 
@@ -1396,6 +1503,10 @@ public class JCurl {
             private int maxRetries = 0;
             private int retryDelay = 1000;
             private long maxDownloadSize = 0;
+            private String certType;
+            private String certPath;
+            private String certPassword;
+            private byte[] certBytes;
 
             // Getters and Setters
             public int getConnectTimeout() {
@@ -1515,6 +1626,38 @@ public class JCurl {
                 this.maxDownloadSize = maxDownloadSize;
             }
 
+            public String getCertType() {
+                return certType;
+            }
+
+            public void setCertType(String certType) {
+                this.certType = certType;
+            }
+
+            public String getCertPath() {
+                return certPath;
+            }
+
+            public void setCertPath(String certPath) {
+                this.certPath = certPath;
+            }
+
+            public String getCertPassword() {
+                return certPassword;
+            }
+
+            public void setCertPassword(String certPassword) {
+                this.certPassword = certPassword;
+            }
+
+            public byte[] getCertBytes() {
+                return certBytes;
+            }
+
+            public void setCertBytes(byte[] certBytes) {
+                this.certBytes = certBytes;
+            }
+
             public RequestConfig copy() {
                 HttpRequestModel.RequestConfig config = new HttpRequestModel.RequestConfig();
                 config.setConnectTimeout(getConnectTimeout());
@@ -1531,6 +1674,10 @@ public class JCurl {
                 config.setMaxRetries(getMaxRetries());
                 config.setRetryDelay(getRetryDelay());
                 config.setMaxDownloadSize(getMaxDownloadSize());
+                config.setCertType(getCertType());
+                config.setCertPath(getCertPath());
+                config.setCertPassword(getCertPassword());
+                config.setCertBytes(getCertBytes());
                 return config;
             }
         }
@@ -1951,8 +2098,10 @@ public class JCurl {
             // 配置 SSL
             if (connection instanceof HttpsURLConnection) {
                 HttpsURLConnection httpsConnection = (HttpsURLConnection) connection;
-                if (!config.isVerifySSL()) {
-                    installTrustAllCerts(httpsConnection);
+                if (!config.isVerifySSL()
+                        || config.getCertPath() != null
+                        || config.getCertBytes() != null) {
+                    configureSSL(httpsConnection, config);
                 }
             }
 
@@ -2254,40 +2403,89 @@ public class JCurl {
             return buffer.toByteArray();
         }
 
-        private void installTrustAllCerts(HttpsURLConnection connection) {
+        private void configureSSL(
+                HttpsURLConnection connection, JCurl.HttpRequestModel.RequestConfig config) {
             try {
-                TrustManager[] trustAllCerts =
-                        new TrustManager[] {
-                            new X509TrustManager() {
-                                @Override
-                                public X509Certificate[] getAcceptedIssuers() {
-                                    return null;
+                TrustManager[] trustManagers = null;
+                KeyManager[] keyManagers = null;
+
+                // 配置信任管理器（如果不验证SSL）
+                if (!config.isVerifySSL()) {
+                    trustManagers =
+                            new TrustManager[] {
+                                new X509TrustManager() {
+                                    @Override
+                                    public X509Certificate[] getAcceptedIssuers() {
+                                        return null;
+                                    }
+
+                                    @Override
+                                    public void checkClientTrusted(
+                                            X509Certificate[] certs, String authType) {}
+
+                                    @Override
+                                    public void checkServerTrusted(
+                                            X509Certificate[] certs, String authType) {}
                                 }
+                            };
+                }
 
-                                @Override
-                                public void checkClientTrusted(
-                                        X509Certificate[] certs, String authType) {}
+                // 配置客户端证书
+                if (config.getCertPath() != null || config.getCertBytes() != null) {
+                    keyManagers = loadClientCertificate(config);
+                }
 
-                                @Override
-                                public void checkServerTrusted(
-                                        X509Certificate[] certs, String authType) {}
-                            }
-                        };
-
+                // 初始化SSL上下文
                 SSLContext sslContext = SSLContext.getInstance("TLS");
-                sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+                sslContext.init(keyManagers, trustManagers, new java.security.SecureRandom());
 
                 connection.setSSLSocketFactory(sslContext.getSocketFactory());
-                connection.setHostnameVerifier(
-                        new HostnameVerifier() {
-                            @Override
-                            public boolean verify(String hostname, SSLSession session) {
-                                return true;
-                            }
-                        });
-            } catch (NoSuchAlgorithmException | KeyManagementException e) {
+
+                // 如果不验证SSL，设置主机名验证器
+                if (!config.isVerifySSL()) {
+                    connection.setHostnameVerifier(
+                            new HostnameVerifier() {
+                                @Override
+                                public boolean verify(String hostname, SSLSession session) {
+                                    return true;
+                                }
+                            });
+                }
+            } catch (Exception e) {
                 throw new RuntimeException("config SSL failed.", e);
             }
+        }
+
+        private KeyManager[] loadClientCertificate(JCurl.HttpRequestModel.RequestConfig config)
+                throws Exception {
+            String certType = config.getCertType();
+            if (certType == null || certType.isEmpty()) {
+                certType = "PKCS12"; // 默认使用PKCS12
+            }
+
+            KeyStore keyStore = KeyStore.getInstance(certType);
+            char[] password =
+                    config.getCertPassword() != null
+                            ? config.getCertPassword().toCharArray()
+                            : new char[0];
+
+            // 从字节数组或文件加载证书
+            if (config.getCertBytes() != null) {
+                try (ByteArrayInputStream bis = new ByteArrayInputStream(config.getCertBytes())) {
+                    keyStore.load(bis, password);
+                }
+            } else if (config.getCertPath() != null) {
+                try (InputStream fis = Files.newInputStream(Paths.get(config.getCertPath()))) {
+                    keyStore.load(fis, password);
+                }
+            } else {
+                throw new IllegalArgumentException("cert path or cert bytes must be provided");
+            }
+
+            KeyManagerFactory kmf =
+                    KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+            kmf.init(keyStore, password);
+            return kmf.getKeyManagers();
         }
     }
 }
