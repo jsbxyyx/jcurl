@@ -3,6 +3,8 @@
 [![Java](https://img.shields.io/badge/Java-8+-orange.svg)](https://www.oracle.com/java/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+[![jcurl](https://img.shields.io/maven-central/v/io.github.jsbxyyx/jcurl?label=jcurl)](https://central.sonatype.com/artifact/io.github.jsbxyyx/jcurl)
+
 > 一个简洁、强大的 Java HTTP 客户端库，类似于 curl 的使用体验，零依赖。
 
 ## 📖 目录
@@ -43,7 +45,7 @@ maven
 <dependency>
     <groupId>io.github.jsbxyyx</groupId>
     <artifactId>jcurl</artifactId>
-    <version>1.0.3</version>
+    <version>${jcurl.version}</version>
 </dependency>
 ```
 
