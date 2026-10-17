@@ -474,7 +474,7 @@ public class JCurl {
                         request.addRawQueryString(value);
                     } else {
                         appendDataBody(request, value);
-                        if (request.getMethod().equals("GET")) {
+                        if (!explicitRequestMethod && request.getMethod().equals("GET")) {
                             post();
                         }
                     }
@@ -489,7 +489,7 @@ public class JCurl {
                         request.setBinaryBody(null);
                     } else {
                         binaryBody(binaryData);
-                        if (request.getMethod().equals("GET")) {
+                        if (!explicitRequestMethod && request.getMethod().equals("GET")) {
                             post();
                         }
                     }
@@ -501,7 +501,7 @@ public class JCurl {
                         request.addRawQueryString(encodedData);
                     } else {
                         appendDataBody(request, encodedData);
-                        if (request.getMethod().equals("GET")) {
+                        if (!explicitRequestMethod && request.getMethod().equals("GET")) {
                             post();
                         }
                     }
@@ -524,7 +524,7 @@ public class JCurl {
                 case "--form":
                 case "--form-string":
                     parseAndAddFormField(value);
-                    if (request.getMethod().equals("GET")) {
+                    if (!explicitRequestMethod && request.getMethod().equals("GET")) {
                         post();
                     }
                     break;
@@ -835,7 +835,7 @@ public class JCurl {
                             request.addRawQueryString(data);
                         } else {
                             appendDataBody(request, data);
-                            if (request.getMethod().equals("GET")) {
+                            if (!explicitRequestMethod && request.getMethod().equals("GET")) {
                                 request.setMethod("POST");
                             }
                         }
@@ -852,7 +852,7 @@ public class JCurl {
                             request.setBinaryBody(null);
                         } else {
                             request.setBinaryBody(binaryBytes);
-                            if (request.getMethod().equals("GET")) {
+                            if (!explicitRequestMethod && request.getMethod().equals("GET")) {
                                 request.setMethod("POST");
                             }
                         }
@@ -866,7 +866,7 @@ public class JCurl {
                             request.addRawQueryString(encodedData);
                         } else {
                             appendDataBody(request, encodedData);
-                            if (request.getMethod().equals("GET")) {
+                            if (!explicitRequestMethod && request.getMethod().equals("GET")) {
                                 request.setMethod("POST");
                             }
                         }
@@ -890,7 +890,7 @@ public class JCurl {
                     case "--form":
                     case "--form-string":
                         parseFormField(request, getNextArg(args, i));
-                        if (request.getMethod().equals("GET")) {
+                        if (!explicitRequestMethod && request.getMethod().equals("GET")) {
                             request.setMethod("POST");
                         }
                         i++;
