@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 /** 测试多值响应头 */
 public class MultiValueResponseHeadersTest {
@@ -71,7 +72,7 @@ public class MultiValueResponseHeadersTest {
         System.out.println("状态码: " + response.getStatusCode());
         System.out.println("\n所有响应头:");
 
-        for (java.util.Map.Entry<String, List<String>> entry : response.getHeaders().entrySet()) {
+        for (Map.Entry<String, List<String>> entry : response.getHeaders().entrySet()) {
             String headerName = entry.getKey();
             List<String> values = entry.getValue();
 

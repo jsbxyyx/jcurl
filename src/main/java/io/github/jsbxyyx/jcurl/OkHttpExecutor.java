@@ -60,7 +60,9 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
     }
 
     public static OkHttpExecutor create(OkHttpClient baseClient) {
-        if (baseClient == null) throw new IllegalArgumentException("baseClient cannot be null");
+        if (baseClient == null) {
+            throw new IllegalArgumentException("baseClient cannot be null");
+        }
         return new OkHttpExecutor(baseClient);
     }
 
@@ -244,7 +246,9 @@ public class OkHttpExecutor implements JCurl.HttpExecutor {
         if (!requestModel.getCookies().isEmpty()) {
             StringBuilder cookieHeader = new StringBuilder();
             for (Map.Entry<String, String> cookie : requestModel.getCookies().entrySet()) {
-                if (cookieHeader.length() > 0) cookieHeader.append("; ");
+                if (cookieHeader.length() > 0) {
+                    cookieHeader.append("; ");
+                }
                 cookieHeader.append(cookie.getKey()).append("=").append(cookie.getValue());
             }
             builder.addHeader(COOKIE, cookieHeader.toString());

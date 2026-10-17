@@ -21,13 +21,17 @@ import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -36,6 +40,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.zip.GZIPInputStream;
@@ -103,6 +108,8 @@ public class JCurl {
     }
 
     private final HttpRequestModel request;
+    private boolean getMode;
+    private boolean explicitRequestMethod;
 
     private JCurl() {
         this.request = new HttpRequestModel();
@@ -226,7 +233,12 @@ public class JCurl {
         return this;
     }
 
-    /** 添加查询参数（支持重复key） */
+    /**
+     * 添加查询参数（支持重复 key）。
+     *
+     * <p>key 和 value 均应传入未进行 URL 编码的原始字符串；构建完整 URL 时会统一使用 UTF-8
+     * 进行查询参数编码。不要预先调用 URLEncoder，否则百分号等字符可能被二次编码。
+     */
     public JCurl queryParam(String key, String value) {
         request.addQueryParam(key, value);
         return this;
@@ -446,6 +458,7 @@ public class JCurl {
                 case "-X":
                 case "--request":
                     method(value);
+                    explicitRequestMethod = true;
                     break;
 
                 case "-H":
@@ -457,38 +470,54 @@ public class JCurl {
                 case "--data":
                 case "--data-ascii":
                 case "--data-raw":
-                    body(value);
-                    if (request.getMethod().equals("GET")) {
-                        post();
+                    if (getMode) {
+                        request.addRawQueryString(value);
+                    } else {
+                        appendDataBody(request, value);
+                        if (request.getMethod().equals("GET")) {
+                            post();
+                        }
                     }
                     break;
 
                 case "--data-binary":
-                    if (value.startsWith("@")) {
-                        binaryBodyFromFile(value.substring(1));
+                    byte[] binaryData = value.startsWith("@")
+                            ? readBinaryFile(value.substring(1))
+                            : value.getBytes(StandardCharsets.UTF_8);
+                    if (getMode) {
+                        request.addRawQueryString(new String(binaryData, StandardCharsets.UTF_8));
+                        request.setBinaryBody(null);
                     } else {
-                        binaryBody(value.getBytes(StandardCharsets.UTF_8));
-                    }
-                    if (request.getMethod().equals("GET")) {
-                        post();
+                        binaryBody(binaryData);
+                        if (request.getMethod().equals("GET")) {
+                            post();
+                        }
                     }
                     break;
 
                 case "--data-urlencode":
-                    body(urlEncode(value));
-                    if (request.getMethod().equals("GET")) {
-                        post();
+                    String encodedData = encodeCurlDataUrlencode(value);
+                    if (getMode) {
+                        request.addRawQueryString(encodedData);
+                    } else {
+                        appendDataBody(request, encodedData);
+                        if (request.getMethod().equals("GET")) {
+                            post();
+                        }
                     }
                     break;
 
                 case "-G":
                 case "--get":
-                    // 将body转为query参数
+                    getMode = true;
                     if (request.getBody() != null) {
                         parseQueryString(request.getBody());
                         request.setBody(null);
                     }
-                    get();
+                    moveBinaryBodyToQuery(request);
+                    if (!explicitRequestMethod) {
+                        get();
+                    }
                     break;
 
                 case "-F":
@@ -591,11 +620,15 @@ public class JCurl {
         switch (option) {
             case "-G":
             case "--get":
+                getMode = true;
                 if (request.getBody() != null) {
                     parseQueryString(request.getBody());
                     request.setBody(null);
                 }
-                get();
+                moveBinaryBodyToQuery(request);
+                if (!explicitRequestMethod) {
+                    get();
+                }
                 break;
 
             case "-L":
@@ -737,15 +770,7 @@ public class JCurl {
     }
 
     private void parseQueryString(String queryString) {
-        String[] pairs = queryString.split("&");
-        for (String pair : pairs) {
-            String[] parts = pair.split("=", 2);
-            if (parts.length == 2) {
-                queryParam(parts[0], parts[1]);
-            } else if (parts.length == 1) {
-                queryParam(parts[0], "");
-            }
-        }
+        request.addRawQueryString(queryString);
     }
 
     // ==================== 构建和执行 ====================
@@ -776,6 +801,8 @@ public class JCurl {
 
     public static HttpRequestModel parse(String[] args) {
         HttpRequestModel request = new HttpRequestModel();
+        boolean getMode = false;
+        boolean explicitRequestMethod = false;
 
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
@@ -789,6 +816,7 @@ public class JCurl {
                     case "-X":
                     case "--request":
                         request.setMethod(getNextArg(args, i));
+                        explicitRequestMethod = true;
                         i++;
                         break;
 
@@ -802,42 +830,60 @@ public class JCurl {
                     case "--data":
                     case "--data-ascii":
                     case "--data-raw":
-                        request.setBody(getNextArg(args, i));
-                        if (request.getMethod().equals("GET")) {
-                            request.setMethod("POST");
+                        String data = getNextArg(args, i);
+                        if (getMode) {
+                            request.addRawQueryString(data);
+                        } else {
+                            appendDataBody(request, data);
+                            if (request.getMethod().equals("GET")) {
+                                request.setMethod("POST");
+                            }
                         }
                         i++;
                         break;
 
                     case "--data-binary":
                         String binaryData = getNextArg(args, i);
-                        if (binaryData.startsWith("@")) {
-                            request.setBinaryBody(readBinaryFile(binaryData.substring(1)));
+                        byte[] binaryBytes = binaryData.startsWith("@")
+                                ? readBinaryFile(binaryData.substring(1))
+                                : binaryData.getBytes(StandardCharsets.UTF_8);
+                        if (getMode) {
+                            request.addRawQueryString(new String(binaryBytes, StandardCharsets.UTF_8));
+                            request.setBinaryBody(null);
                         } else {
-                            request.setBinaryBody(binaryData.getBytes(StandardCharsets.UTF_8));
-                        }
-                        if (request.getMethod().equals("GET")) {
-                            request.setMethod("POST");
+                            request.setBinaryBody(binaryBytes);
+                            if (request.getMethod().equals("GET")) {
+                                request.setMethod("POST");
+                            }
                         }
                         i++;
                         break;
 
                     case "--data-urlencode":
                         String urlencData = getNextArg(args, i);
-                        request.setBody(urlEncode(urlencData));
-                        if (request.getMethod().equals("GET")) {
-                            request.setMethod("POST");
+                        String encodedData = encodeCurlDataUrlencode(urlencData);
+                        if (getMode) {
+                            request.addRawQueryString(encodedData);
+                        } else {
+                            appendDataBody(request, encodedData);
+                            if (request.getMethod().equals("GET")) {
+                                request.setMethod("POST");
+                            }
                         }
                         i++;
                         break;
 
                     case "-G":
                     case "--get":
+                        getMode = true;
                         if (request.getBody() != null) {
                             parseQueryString(request, request.getBody());
                             request.setBody(null);
                         }
-                        request.setMethod("GET");
+                        moveBinaryBodyToQuery(request);
+                        if (!explicitRequestMethod) {
+                            request.setMethod("GET");
+                        }
                         break;
 
                     case "-F":
@@ -952,6 +998,17 @@ public class JCurl {
                 }
             } catch (Exception e) {
                 throw new IllegalArgumentException("parse option failed: " + arg, e);
+            }
+        }
+
+        if (getMode && request.getBody() != null) {
+            request.addRawQueryString(request.getBody());
+            request.setBody(null);
+        }
+        if (getMode) {
+            moveBinaryBodyToQuery(request);
+            if (!explicitRequestMethod) {
+                request.setMethod("GET");
             }
         }
 
@@ -1149,20 +1206,38 @@ public class JCurl {
     }
 
     private static void parseQueryString(HttpRequestModel request, String queryString) {
-        String[] pairs = queryString.split("&");
-        for (String pair : pairs) {
-            String[] parts = pair.split("=", 2);
-            if (parts.length == 2) {
-                request.addQueryParam(parts[0], parts[1]); // 使用addQueryParam支持多值
-            } else if (parts.length == 1) {
-                request.addQueryParam(parts[0], "");
-            }
+        // curl -G --data appends the supplied query string as-is; do not parse and re-encode it.
+        request.addRawQueryString(queryString);
+    }
+
+    private static void appendDataBody(HttpRequestModel request, String data) {
+        String currentBody = request.getBody();
+        if (currentBody == null) {
+            request.setBody(data);
+        } else {
+            request.setBody(currentBody + "&" + data);
         }
+    }
+
+    private static void moveBinaryBodyToQuery(HttpRequestModel request) {
+        byte[] binaryBody = request.getBinaryBody();
+        if (binaryBody != null) {
+            request.addRawQueryString(new String(binaryBody, StandardCharsets.UTF_8));
+            request.setBinaryBody(null);
+        }
+    }
+
+    private static String encodeCurlDataUrlencode(String value) {
+        int equalsIndex = value.indexOf('=');
+        if (equalsIndex >= 0) {
+            return value.substring(0, equalsIndex + 1) + urlEncode(value.substring(equalsIndex + 1));
+        }
+        return urlEncode(value);
     }
 
     private static String urlEncode(String value) {
         try {
-            return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8.name());
+            return URLEncoder.encode(value, StandardCharsets.UTF_8.name());
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException(e);
         }
@@ -1181,6 +1256,7 @@ public class JCurl {
         private byte[] binaryBody;
         private Map<String, List<FormField>> formFields;
         private Map<String, List<String>> queryParams = new LinkedHashMap<>();
+        private String rawQueryString;
 
         // 认证信息
         private String username;
@@ -1265,13 +1341,18 @@ public class JCurl {
         }
 
         public void addFormField(String name, FormField field) {
-            if (this.formFields == null) this.formFields = new LinkedHashMap<>();
+            if (this.formFields == null) {
+                this.formFields = new LinkedHashMap<>();
+            }
             this.formFields.computeIfAbsent(name, k -> new ArrayList<>()).add(field);
         }
 
         public void setFormField(String name, FormField field) {
             List<FormField> fields = new ArrayList<>();
             fields.add(field);
+            if (this.formFields == null) {
+                this.formFields = new LinkedHashMap<>();
+            }
             this.formFields.put(name, fields);
         }
 
@@ -1302,9 +1383,25 @@ public class JCurl {
             this.queryParams = queryParams;
         }
 
-        /** 添加单个查询参数值 */
+        /**
+         * 添加单个查询参数值。
+         *
+         * <p>key 和 value 均为未进行 URL 编码的原始字符串；getFullUrl() 会在生成 URL 时统一编码。
+         */
         public void addQueryParam(String key, String value) {
             this.queryParams.computeIfAbsent(key, k -> new ArrayList<>()).add(value);
+        }
+
+        /** Append query data supplied by curl's -G/--data options without re-encoding it. */
+        public void addRawQueryString(String queryString) {
+            if (queryString == null || queryString.isEmpty()) {
+                return;
+            }
+            if (this.rawQueryString == null || this.rawQueryString.isEmpty()) {
+                this.rawQueryString = queryString;
+            } else {
+                this.rawQueryString += "&" + queryString;
+            }
         }
 
         /** 设置查询参数（覆盖已有值） */
@@ -1361,31 +1458,68 @@ public class JCurl {
             this.config = config;
         }
 
-        /** 获取完整URL（包含查询参数） */
+        /**
+         * 获取完整 URL（包含查询参数）。
+         *
+         * <p>使用 URI 解析 URL 结构，保留已有的 raw query 和 fragment；新增参数以 UTF-8 编码后追加。
+         *
+         * @throws IllegalArgumentException URL 不符合 URI 语法时抛出
+         */
         public String getFullUrl() {
-            if (queryParams.isEmpty()) {
+            if (queryParams.isEmpty() && (rawQueryString == null || rawQueryString.isEmpty())) {
                 return url;
             }
 
-            StringBuilder fullUrl = new StringBuilder(url);
-            char separator = url.contains("?") ? '&' : '?';
+            final URI uri;
+            try {
+                uri = new URI(url);
+            } catch (URISyntaxException e) {
+                throw new IllegalArgumentException("Invalid URL: " + url, e);
+            }
 
+            String existingQuery = uri.getRawQuery();
+            StringBuilder query = new StringBuilder(existingQuery == null ? "" : existingQuery);
+            if (rawQueryString != null && !rawQueryString.isEmpty()) {
+                if (query.length() > 0 && query.charAt(query.length() - 1) != '&') {
+                    query.append('&');
+                }
+                query.append(rawQueryString);
+            }
             for (Map.Entry<String, List<String>> entry : queryParams.entrySet()) {
                 for (String value : entry.getValue()) {
-                    fullUrl.append(separator)
-                            .append(urlEncode(entry.getKey()))
+                    // Preserve an existing trailing '&' instead of adding a redundant separator.
+                    if (query.length() > 0 && query.charAt(query.length() - 1) != '&') {
+                        query.append('&');
+                    }
+                    query.append(urlEncode(entry.getKey()))
                             .append('=')
                             .append(urlEncode(value));
-                    separator = '&';
                 }
             }
 
+            // 直接使用 URI 的 raw components 重建，避免把已有的 %XX 再次编码。
+            StringBuilder fullUrl = new StringBuilder();
+            if (uri.getScheme() != null) {
+                fullUrl.append(uri.getScheme()).append(':');
+            }
+            if (uri.getRawAuthority() != null) {
+                fullUrl.append("//").append(uri.getRawAuthority());
+            }
+            if (uri.getRawPath() != null) {
+                fullUrl.append(uri.getRawPath());
+            }
+            if (uri.getRawQuery() != null || query.length() > 0) {
+                fullUrl.append('?').append(query);
+            }
+            if (uri.getRawFragment() != null) {
+                fullUrl.append('#').append(uri.getRawFragment());
+            }
             return fullUrl.toString();
         }
 
         private String urlEncode(String value) {
             try {
-                return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8.name());
+                return URLEncoder.encode(value, StandardCharsets.UTF_8.name());
             } catch (UnsupportedEncodingException e) {
                 throw new RuntimeException(e);
             }
@@ -1787,7 +1921,10 @@ public class JCurl {
         }
 
         public CaseInsensitiveMap(Map<String, V> wrappedMap) {
-            this.wrappedMap = wrappedMap;
+            this.wrappedMap = new LinkedHashMap<>();
+            if (wrappedMap != null) {
+                putAll(wrappedMap);
+            }
         }
 
         public int size() {
@@ -1802,7 +1939,7 @@ public class JCurl {
             if (key == null || !(key instanceof String)) {
                 return false;
             }
-            return wrappedMap.containsKey(key.toString().toLowerCase());
+            return wrappedMap.containsKey(key.toString().toLowerCase(Locale.ROOT));
         }
 
         public boolean containsValue(Object value) {
@@ -1813,28 +1950,28 @@ public class JCurl {
             if (key == null || !(key instanceof String)) {
                 return null;
             }
-            return wrappedMap.get(key.toString().toLowerCase());
+            return wrappedMap.get(key.toString().toLowerCase(Locale.ROOT));
         }
 
         public V put(String key, V value) {
             if (key == null) {
                 throw new NullPointerException("key cannot be null");
             }
-            return wrappedMap.put(key.toLowerCase(), value);
+            return wrappedMap.put(key.toLowerCase(Locale.ROOT), value);
         }
 
         public V remove(Object key) {
             if (key == null || !(key instanceof String)) {
                 return null;
             }
-            return wrappedMap.remove(key.toString().toLowerCase());
+            return wrappedMap.remove(key.toString().toLowerCase(Locale.ROOT));
         }
 
         public void putAll(Map<? extends String, ? extends V> m) {
             if (m == null) {
                 throw new NullPointerException("map cannot be null");
             }
-            for (java.util.Map.Entry<? extends String, ? extends V> entry : m.entrySet()) {
+            for (Map.Entry<? extends String, ? extends V> entry : m.entrySet()) {
                 this.put(entry.getKey(), entry.getValue());
             }
         }
@@ -1851,7 +1988,7 @@ public class JCurl {
             return wrappedMap.values();
         }
 
-        public Set<java.util.Map.Entry<String, V>> entrySet() {
+        public Set<Map.Entry<String, V>> entrySet() {
             return wrappedMap.entrySet();
         }
     }
@@ -2365,7 +2502,6 @@ public class JCurl {
                     response.setBodyBytes(bodyBytes);
                 }
             } catch (IOException e) {
-                // 如果读取响应体失败，不抛出异常，只是没有响应体
                 response.setBodyBytes(new byte[0]);
             } finally {
                 if (inputStream != null) {
@@ -2437,7 +2573,7 @@ public class JCurl {
 
                 // 初始化SSL上下文
                 SSLContext sslContext = SSLContext.getInstance("TLS");
-                sslContext.init(keyManagers, trustManagers, new java.security.SecureRandom());
+                sslContext.init(keyManagers, trustManagers, new SecureRandom());
 
                 connection.setSSLSocketFactory(sslContext.getSocketFactory());
 
