@@ -73,7 +73,6 @@
                     <!-- ./mvnw -s $HOME/.m2/settings.xml clean deploy -DskipTests -->
                     <!-- .\mvnw.cmd -s %USERPROFILE%\.m2\settings.xml clean deploy -DskipTests -->
                     <publishingServerId>io.github.jsbxyyx</publishingServerId>
-                    <tokenAuth>true</tokenAuth>
                 </configuration>
             </plugin>
             <plugin>
